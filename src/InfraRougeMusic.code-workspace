@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"name": "InfraRougeMusic",
+			"path": ".."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"array": "cpp",
+			"string": "cpp",
+			"string_view": "cpp",
+			"ranges": "cpp",
+			"initializer_list": "cpp",
+			"utility": "cpp",
+			"bit.h": "c"
+		}
+	}
+}
