@@ -21,5 +21,5 @@ public:
     PIR(const int& delayMin, const int& delaySec, const uint8_t& pin, const int& scenario);
     ~PIR();
 
-    virtual bool isTriggered(const int& delaySinceActMin, const int& delaySinceActSec, bool& letsgo);
+    virtual bool isTriggered(unsigned long& delaySinceActMin, unsigned long& delaySinceActSec, unsigned long& timeLast2, const unsigned long& timeNow,  bool& letsgo);
 };

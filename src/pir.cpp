@@ -12,7 +12,7 @@ PIR::~PIR()
 {
 }
 
-bool PIR::isTriggered(const int& delaySinceActMin, const int& delaySinceActSec, bool& letsgo){
+bool PIR::isTriggered(unsigned long& delaySinceActMin, unsigned long& delaySinceActSec, unsigned long& timeLast2, const unsigned long& timeNow,  bool& letsgo){
     switch (scenario_)
     {
     case 1:

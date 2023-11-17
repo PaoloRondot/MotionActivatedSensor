@@ -12,7 +12,7 @@ Infrarouge::~Infrarouge()
 {
 }
 
-bool Infrarouge::isTriggered(const int& delaySinceActMin, const int& delaySinceActSec, bool& letsgo){
+bool Infrarouge::isTriggered(unsigned long& delaySinceActMin, unsigned long& delaySinceActSec, unsigned long& timeLast2, const unsigned long& timeNow,  bool& letsgo){
     switch (scenario_)
     {
     case 1:
