@@ -4,6 +4,12 @@
 
 #include "capteur.hpp"
 
+enum BOUTON_SCENARIO: uint8_t {
+    PLAY_WHEN_PRESSED_AND_RESUME = 1,
+    PLAY_WHEN_PRESSED_AND_RESTART = 2,
+    PLAY_WHEN_PRESSED_AND_RESTART_AFTER_DELAY = 3
+};
+
 class Bouton : public Capteur
 {
 private:

@@ -12,23 +12,21 @@ Bouton::~Bouton()
 bool Bouton::isTriggered(unsigned long& delaySinceActMin, unsigned long& delaySinceActSec, unsigned long& timeLast2, const unsigned long& timeNow,  bool& letsgo) {
     switch (scenario_)
     {
-    case 1:
+    case BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESUME:
         if (letsgo) {
-            if (!digitalRead(pin_)) {
-                while (!digitalRead(pin_));
+            if (digitalRead(pin_)) {
+                while (digitalRead(pin_)) {
+                    delay(10);
+                }
                 letsgo = false;
             }
             return true;
         }
-        else if (!digitalRead(pin_)){
-            while (!digitalRead(pin_));
-            return true;
-        }
-        else return false;
-        break;
-
-    case 2:
-        if (!digitalRead(pin_)) {
+        else if (digitalRead(pin_)){
+            Serial.println("I'm here three");
+            while (digitalRead(pin_)) {
+                delay(10);
+            }
             return true;
         }
         else {
@@ -36,9 +34,18 @@ bool Bouton::isTriggered(unsigned long& delaySinceActMin, unsigned long& delaySi
         }
         break;
 
-    case 3:
+    case BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESTART:
+        if (digitalRead(pin_)) {
+            return true;
+        }
+        else {
+            return false;
+        }
+        break;
+
+    case BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESTART_AFTER_DELAY:
         // Serial.println("delaySinceActMin : " + String(delaySinceActMin) + " delaySinceActSec : " + String(delaySinceActSec) + " digitalRead(pin_) : " + String(digitalRead(pin_)) + " letsgo : " + String(letsgo));
-        if ((delaySinceActMin >= delayMin_ && delaySinceActSec >= delaySec_) && !digitalRead(pin_)) {
+        if ((delaySinceActMin >= delayMin_ && delaySinceActSec >= delaySec_) && digitalRead(pin_)) {
             return true;
         }
         else {

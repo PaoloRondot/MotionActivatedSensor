@@ -8,6 +8,13 @@
 
 #include "capteur.hpp"
 
+enum PIR_SCENARIO: uint8_t {
+    PLAY_ONCE_WHEN_MOVE = 1,
+    PLAY_WHILE_MOVE = 2,
+    PLAY_ONCE_WHEN_NO_MOVE = 3,
+    PLAY_WHILE_NO_MOVE = 4
+};
+
 class PIR : public Capteur
 {
 private:

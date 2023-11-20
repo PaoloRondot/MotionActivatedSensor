@@ -15,13 +15,13 @@ PIR::~PIR()
 bool PIR::isTriggered(unsigned long& delaySinceActMin, unsigned long& delaySinceActSec, unsigned long& timeLast2, const unsigned long& timeNow,  bool& letsgo){
     switch (scenario_)
     {
-    case 1:
+    case PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE:
         if (((delaySinceActMin >= delayMin_ && delaySinceActSec >= delaySec_) && digitalRead (pin_)) || letsgo)
             return true;
         else return false;
         break;
 
-    case 2:
+    case PIR_SCENARIO::PLAY_WHILE_MOVE:
         if (((delaySinceActMin >= delayMin_ && delaySinceActSec >= delaySec_)  && digitalRead (pin_)) || (running_ && loops_since_act_ < MIN_LOOP)) {
             running_ = true;
             if (digitalRead (pin_)) loops_since_act_ = 0;
@@ -34,13 +34,13 @@ bool PIR::isTriggered(unsigned long& delaySinceActMin, unsigned long& delaySince
         }
         break;
 
-    case 3:
+    case PIR_SCENARIO::PLAY_ONCE_WHEN_NO_MOVE:
         if (((delaySinceActMin >= delayMin_ && delaySinceActSec >= delaySec_) && !digitalRead (pin_)) || letsgo)
             return true;
         else return false;
         break;
 
-    case 4:
+    case PIR_SCENARIO::PLAY_WHILE_NO_MOVE:
         if (((delaySinceActMin >= delayMin_ && delaySinceActSec >= delaySec_)  && !digitalRead (pin_)) || (running_ && loops_since_act_ < MIN_LOOP_2)) {
             running_ = true;
             if (!digitalRead(pin_)) loops_since_act_ = 0;

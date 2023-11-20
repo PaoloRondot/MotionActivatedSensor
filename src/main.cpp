@@ -179,8 +179,8 @@ unsigned char max_sound = 0;
 #define CAP_INR 2
 #define CAP_ULT 3
 
-int capteurType = CAP_PIR;
-int scenario = 1;
+int capteurType = CAP_BOU;
+int scenario = 3;
 
 Capteur *capteur;
 
@@ -214,7 +214,6 @@ void checkUpdateSounds() {
 
 void setup() {
     pinMode(D2, OUTPUT);
-    pinMode(D3, INPUT_PULLUP);
     pinMode(D0, INPUT);
     Serial.begin(115200);  // Initialising if(DEBUG)Serial Monitor
     delay(10);
@@ -351,7 +350,8 @@ void loop() {
 
     if (capteur->isTriggered(delaySinceActMin, delaySinceActSec, timeLast2,
                              timeNow, letsgo)) {
-        infraredActivation = false;
+        Serial.println(F("Capteur triggered"));
+		infraredActivation = false;
         if (!letsgo) {
             Serial.println(F("Lancement du son apres delai before"));
             delay(delayBefSecSet * 1000);
@@ -407,7 +407,7 @@ void checkRestart() {
         ESP.restart();
 }
 
-void randomizeAll() {
+void randomizeAll() { 
     Serial.print(F("max_sound: "));
     Serial.println(max_sound);
     for (unsigned char i = 0; i < max_sound; i++) {  // fill array
