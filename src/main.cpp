@@ -180,7 +180,7 @@ unsigned char max_sound = 0;
 #define CAP_ULT 3
 
 int capteurType = CAP_BOU;
-int scenario = 3;
+int scenario = BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESTART;
 
 Capteur *capteur;
 
@@ -342,7 +342,7 @@ void loop() {
         hours = hours + 1;
     }
 
-	if (decoder->isRunning()) {
+	if (letsgo) {
 		digitalWrite(D2, HIGH);
 	} else {
 		digitalWrite(D2, LOW);
@@ -350,7 +350,6 @@ void loop() {
 
     if (capteur->isTriggered(delaySinceActMin, delaySinceActSec, timeLast2,
                              timeNow, letsgo)) {
-        Serial.println(F("Capteur triggered"));
 		infraredActivation = false;
         if (!letsgo) {
             Serial.println(F("Lancement du son apres delai before"));
