@@ -211,7 +211,7 @@ void checkUpdateSounds() {
     Serial.print("ESP.getFreeHeap(): ");
     Serial.println(ESP.getFreeHeap());
 }
-
+// TODO: When resume relay needs to be off between two press
 void setup() {
     pinMode(D2, OUTPUT);
     pinMode(D0, INPUT);
@@ -342,15 +342,10 @@ void loop() {
         hours = hours + 1;
     }
 
-	if (letsgo) {
-		digitalWrite(D2, HIGH);
-	} else {
-		digitalWrite(D2, LOW);
-	}
-
     if (capteur->isTriggered(delaySinceActMin, delaySinceActSec, timeLast2,
                              timeNow, letsgo)) {
-		infraredActivation = false;
+		digitalWrite(D2, HIGH);
+        infraredActivation = false;
         if (!letsgo) {
             Serial.println(F("Lancement du son apres delai before"));
             delay(delayBefSecSet * 1000);
@@ -389,6 +384,8 @@ void loop() {
             delaySinceActSec = 0;
             delaySinceActMin = 0;
         }
+    } else {
+        digitalWrite(D2, LOW);
     }
 }
 
