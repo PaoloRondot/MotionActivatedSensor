@@ -344,6 +344,7 @@ void loop() {
 
     if (capteur->isTriggered(delaySinceActMin, delaySinceActSec, timeLast2,
                              timeNow, letsgo)) {
+		digitalWrite(D2, HIGH);
         infraredActivation = false;
         if (!letsgo) {
             Serial.println(F("Lancement du son apres delai before"));
@@ -369,7 +370,6 @@ void loop() {
         letsgo = true;
         static int lastms = 0;
         if (decoder->isRunning()) {
-            digitalWrite(D2, HIGH);
             if (millis() - lastms > 1000) {
                 lastms = millis();
                 Serial.printf("Running for %d ms...\n", lastms);
@@ -377,7 +377,6 @@ void loop() {
             }
             if (!decoder->loop()) decoder->stop();
         } else {
-            digitalWrite(D2, LOW);
             Serial.println(F("MP3 done\n"));
             delay(1000);
             letsgo = false;
