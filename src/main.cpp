@@ -180,7 +180,7 @@ unsigned char max_sound = 0;
 #define CAP_ULT 3
 
 int capteurType = CAP_BOU;
-int scenario = BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESTART;
+int scenario = BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESUME;
 
 Capteur *capteur;
 
