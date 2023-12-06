@@ -179,8 +179,8 @@ unsigned char max_sound = 0;
 #define CAP_INR 2
 #define CAP_ULT 3
 
-int capteurType = CAP_BOU;
-int scenario = BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESTART;
+int capteurType = CAP_PIR;
+int scenario = PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE;
 
 Capteur *capteur;
 
@@ -341,12 +341,6 @@ void loop() {
         minutes = 0;
         hours = hours + 1;
     }
-
-	if (letsgo) {
-		digitalWrite(D2, HIGH);
-	} else {
-		digitalWrite(D2, LOW);
-	}
 
     if (capteur->isTriggered(delaySinceActMin, delaySinceActSec, timeLast2,
                              timeNow, letsgo)) {
