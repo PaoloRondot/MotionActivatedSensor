@@ -1,7 +1,7 @@
 #include "bouton.hpp"
 
 Bouton::Bouton(const int& delayMin, const int& delaySec, const uint8_t& pin, const int& scenario)
-:delayMin_(delayMin), delaySec_(delaySec), pin_(pin), scenario_(scenario), running_(false), loops_since_act_(0)
+:Capteur(delayMin, delaySec, pin, scenario)
 {
 }
 
@@ -9,16 +9,16 @@ Bouton::~Bouton()
 {
 }
 
-bool Bouton::isTriggered(unsigned long& delaySinceActMin, unsigned long& delaySinceActSec, unsigned long& timeLast2, const unsigned long& timeNow,  bool& letsgo) {
+bool Bouton::isTriggered(uint32_t &minutes_since_act, uint8_t &seconds_since_act, uint32_t seconds_since_boot_act_timestamp, const uint32_t &seconds_since_boot, PLAYER_STATE &player_state) {
     switch (scenario_)
     {
     case BOUTON_SCENARIO::PLAY_AND_RESTART:
-        if (letsgo) {
+        if (player_state == PLAYER_STATE::PLAYING) {
             if (digitalRead(pin_)) {
                 while (digitalRead(pin_)) {
                     delay(10);
                 }
-                letsgo = false;
+                player_state = PLAYER_STATE::STOPPED;
             }
             return true;
         }
@@ -38,37 +38,38 @@ bool Bouton::isTriggered(unsigned long& delaySinceActMin, unsigned long& delaySi
             return true;
         }
         else {
+            if (player_state == PLAYER_STATE::PLAYING) {
+                seconds_since_act = 0;
+                minutes_since_act = 0;
+                player_state = PLAYER_STATE::PAUSED;
+            }
             return false;
         }
         break;
 
     case BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESTART:
-        // Serial.println("delaySinceActMin : " + String(delaySinceActMin) + " delaySinceActSec : " + String(delaySinceActSec) + " digitalRead(pin_) : " + String(digitalRead(pin_)) + " letsgo : " + String(letsgo));
         if (digitalRead(pin_)) {
             return true;
         }
         else {
-            if (letsgo) {
-                timeLast2 = timeNow;
-                delaySinceActSec = 0;
-                delaySinceActMin = 0;
-                letsgo = false;
+            if (player_state == PLAYER_STATE::PLAYING) {
+                seconds_since_act = 0;
+                minutes_since_act = 0;
+                player_state = PLAYER_STATE::STOPPED;
             }
             return false;
         }
         break;
 
     case BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESTART_AFTER_DELAY:
-        // Serial.println("delaySinceActMin : " + String(delaySinceActMin) + " delaySinceActSec : " + String(delaySinceActSec) + " digitalRead(pin_) : " + String(digitalRead(pin_)) + " letsgo : " + String(letsgo));
-        if ((delaySinceActMin >= delayMin_ && delaySinceActSec >= delaySec_) && digitalRead(pin_)) {
+        if ((minutes_since_act * 60 + seconds_since_act >= delayMin_ * 60 + delaySec_) && digitalRead(pin_)) {
             return true;
         }
         else {
-            if (letsgo) {
-                timeLast2 = timeNow;
-                delaySinceActSec = 0;
-                delaySinceActMin = 0;
-                letsgo = false;
+            if (player_state == PLAYER_STATE::PLAYING) {
+                seconds_since_act = 0;
+                minutes_since_act = 0;
+                player_state = PLAYER_STATE::STOPPED;
             }
             return false;
         }
