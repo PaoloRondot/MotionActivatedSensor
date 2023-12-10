@@ -14,16 +14,24 @@
 #include "capteur.hpp"
 #include "infrarouge.hpp"
 #include "pir.hpp"
+#include "ultrason.hpp"
 
-#define VERSION "2.1.2.2"
+#define VERSION_CODE "2.1.2.2"
 
-#define NB_SON 25
 #define DELAY_FETCH 2
 #define TIME_HOURS_RESTART 8
 #define TIME_MINS_RESTART 0
 
 #define CS_PIN D1
 #define SPI_SPEED SD_SCK_MHZ(20)
+
+constexpr uint8_t capteurType = CAPTEUR_TYPE::ULTRASON;
+constexpr uint8_t scenario = ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN;
+
+constexpr bool is_offline = true;
+
+constexpr bool waiting_track = false;
+constexpr uint16_t delay_before_trigger_waiting_seconds = 0;
 
 /**
  * @version 1.3.4
@@ -112,8 +120,7 @@ const char *ssid = "Default_SSID";
 const char *passphrase = "Default_Password";
 String st;
 String content;
-bool letsgo = false;
-unsigned char allIndexes[NB_SON];
+PLAYER_STATE player_state = STOPPED;
 unsigned char currentIndex = 0;
 unsigned int nbFetch = 0;
 
@@ -123,16 +130,15 @@ AudioGeneratorMP3 *decoder = NULL;
 AudioFileSourceSD *source = NULL;
 AudioOutputI2S *output = NULL;
 
-unsigned long timeNow = 0;
-unsigned long timeLast = 0;
-unsigned long timeLast2 = 0;
-unsigned char seconds = 0;
-unsigned char prevSeconds = 0;
-unsigned char minutes = 0;
-unsigned char minutes_last = 0;
-int hours = 0;
-unsigned long delaySinceActSec = 1000;
-unsigned long delaySinceActMin = 1000;
+uint32_t seconds_since_boot = 0;
+uint32_t current_min_in_seconds = 0;
+uint32_t seconds_since_boot_act_timestamp = 0;
+uint8_t seconds = 0;
+uint8_t seconds_last = 0;
+uint8_t minutes = 0;
+uint8_t hours = 0;
+uint8_t seconds_since_act = 65;
+uint32_t minutes_since_act = 10;
 bool fetch = true;
 bool gogogofetch = false;
 bool infraredActivation = true;
@@ -158,71 +164,54 @@ typedef struct sound {
 // Function Decalration
 void MDCallback(void *cbData, const char *type, bool isUnicode,
                 const char *string);
-// void initA(char *filename);
-void updateAudios();
-void fetchAudiosOnline();
-void fetchAudiosLocal();
-void deleteTooMuch();
-void updateAudios();
-int downloadAudio(t_sound soundToUpdade);
-int checkSoundIntegrity(t_sound toCheck, String path);
-int removeAudio(String filename);
-void randomizeAll();
-void checkRestart();
+int     checkSoundIntegrity(t_sound toCheck, String path);
+void    checkRestart();
+void    checkUpdateSounds();
+void    deleteTooMuch();
+int     downloadAudio(t_sound soundToUpdade);
+void    fetchAudiosLocal();
+void    fetchAudiosOnline();
+void    handleWaitingTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
+                 uint32_t &minutes_since_act);
+void    handleTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
+                 uint32_t &minutes_since_act);
+int     removeAudio(String filename);
+void    setUpTrack(const char *path);
+void    updateAudios();
 
 t_sound allSoundsOnline[NB_SON];
 t_sound allSoundsStored[NB_SON];
-unsigned char max_sound = 0;
-
-#define CAP_PIR 0
-#define CAP_BOU 1
-#define CAP_INR 2
-#define CAP_ULT 3
-
-int capteurType = CAP_PIR;
-int scenario = PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE;
+uint8_t max_sound = 0;
 
 Capteur *capteur;
 
-void checkUpdateSounds() {
-    fetchAudiosOnline();
-    nbFetch++;
-    // Serial.print("fetch audios online ESP.getFreeHeap(): ");
-    // Serial.println(ESP.getFreeHeap());
-    deleteTooMuch();
-    // Serial.print("delete too much ESP.getFreeHeap(): ");
-    // Serial.println(ESP.getFreeHeap());
-
-    updateAudios();
-    // Serial.print("update audio ESP.getFreeHeap(): ");
-    // Serial.println(ESP.getFreeHeap());
-    for (unsigned char i = 0; i < max_sound; ++i) {
-        Serial.println(F("----------------------------------------"));
-        Serial.print(F("allSoundsOnline[i].title: "));
-        Serial.println(allSoundsOnline[i].title);
-        // Serial.print(F("allSoundsOnline[i].size: "));
-        // Serial.println(allSoundsOnline[i].size);
-        Serial.println("---------");
-        Serial.print(F("allSoundsStored[i].title: "));
-        Serial.println(allSoundsStored[i].title);
-        // Serial.print(F("allSoundsStored[i].size: "));
-        // Serial.println(allSoundsStored[i].size);
+void printLog(const char* function, LOG_LEVEL level, const char* message, ...) {
+    if (level == LOG_INFO) {
+        Serial.print("[INFO] ");
+    } else if (level == LOG_WARNING) {
+        Serial.print("[WARNING] ");
+    } else if (level == LOG_ERROR) {
+        Serial.print("[ERROR] ");
     }
-    Serial.print("ESP.getFreeHeap(): ");
-    Serial.println(ESP.getFreeHeap());
+    Serial.print(function);
+    Serial.print(" : ");
+
+    va_list args;
+    va_start(args, message);
+    char buffer[256];
+    vsnprintf(buffer, 256, message, args);
+    va_end(args);
+    Serial.println(buffer);
 }
 
 void setup() {
     pinMode(D2, OUTPUT);
     pinMode(D0, INPUT);
+    pinMode(D3, OUTPUT);
     Serial.begin(115200);  // Initialising if(DEBUG)Serial Monitor
     delay(10);
     pinMode(LED_BUILTIN, OUTPUT);
-    Serial.print("Version ");
-    Serial.println(VERSION);
-    Serial.println();
-    Serial.println();
-    Serial.println("Startup");
+    printLog(__func__, LOG_INFO, "Starting " VERSION_CODE);
 
     //---------------------------------------- Read eeprom for ssid and pass
     WiFi.mode(WIFI_STA);  // explicitly set mode, esp defaults to STA+AP
@@ -247,11 +236,11 @@ void setup() {
     res = wm.autoConnect("AutoConnectAP", "");  // password protected ap
 
     if (!res) {
-        Serial.println(F("Failed to connect"));
+        printLog(__func__, LOG_ERROR, "Failed to connect");
         // ESP.restart();
     } else {
         // if you get here you have connected to the WiFi
-        Serial.println(F("connected...yeey :)"));
+        printLog(__func__, LOG_INFO, "Connected");
     }
 
     audioLogger = &Serial;
@@ -261,10 +250,10 @@ void setup() {
     decoder = new AudioGeneratorMP3();
 
     if (!SD.begin(CS_PIN, SPI_SPEED)) {
-        Serial.println("Probleme carte SD");
+        printLog(__func__, LOG_ERROR, "Probleme carte SD");
         return;
     }
-    Serial.println("SD initialisee.");
+    printLog(__func__, LOG_INFO, "SD initialisee.");
 
     for (unsigned char i = 0; i < NB_SON; ++i) {
         allSoundsOnline[i].title.reserve(25);
@@ -272,62 +261,65 @@ void setup() {
         allSoundsStored[i].title.reserve(25);
     }
 
-    fetchAudiosLocal();
-    checkUpdateSounds();
-    randomizeAll();
-
-    timeClient.begin();
-    timeClient.setTimeOffset(7200);
-
-    if (capteurType == CAP_PIR) {
+    if (capteurType == CAPTEUR_TYPE::PIR) {
         // capteur = new PIR(0, 10, D0, scenario);
-        capteur = new PIR(delayMinSet, delaySecSet, D0, scenario);
-    } else if (capteurType == CAP_BOU) {
+        capteur = new Pir(delayMinSet, delaySecSet, D0, scenario);
+    } else if (capteurType == CAPTEUR_TYPE::BOUTON) {
+
         // capteur = new Bouton(0, 10, D3, scenario);
         capteur = new Bouton(delayMinSet, delaySecSet, D0, scenario);
-    } else if (capteurType == CAP_INR) {
+    } else if (capteurType == CAPTEUR_TYPE::INFRAROUGE) {
         // capteur = new Infrarouge(0, 10, D0, scenario);
         capteur = new Infrarouge(delayMinSet, delaySecSet, D0, scenario);
     }
-    // else if (capteurType == CAP_ULT) {
-    //   capteur = new Ultrason(D0, scenario);
-    // }
+    else if (capteurType == CAPTEUR_TYPE::ULTRASON) {
+      capteur = new Ultrason(delayMinSet, delaySecSet, D0, scenario, D3, 10);
+    }
     else {
-        Serial.println(F("Capteur non reconnu"));
+        printLog(__func__, LOG_ERROR, "Capteur non reconnu");
         ESP.restart();
     }
+
+    fetchAudiosLocal();
+    if (!is_offline) {
+        checkUpdateSounds();
+    }
+
+    timeClient.begin();
+    timeClient.setTimeOffset(7200);
 }
 
 void loop() {
-    timeNow = millis() /
+    seconds_since_boot = millis() /
               1000;  // the number of milliseconds that have passed since boot
-    delaySinceActSec = timeNow - timeLast2;
-    seconds = timeNow - timeLast;
+    seconds = seconds_since_boot - current_min_in_seconds;
+    if (seconds_last != seconds) {
+        seconds_since_act++;
+    }
+    seconds_last = seconds;
 
-    // the number of seconds that have passed since the last time 60 seconds was
-    // reached.
-    minutes_last = minutes;
+    // Every minute, we add a minute to the clock.
     if (seconds >= 60) {
-        Serial.print("ESP.getFreeHeap(): ");
-        Serial.println(ESP.getFreeHeap());
-        Serial.print("Nb fetch: ");
-        Serial.println(nbFetch);
-        timeLast = timeNow;
+        printLog(__func__, LOG_INFO, "ESP.getFreeHeap(): %d", ESP.getFreeHeap());
+        printLog(__func__, LOG_INFO, "Nb fetch: %d", nbFetch);
+        current_min_in_seconds = seconds_since_boot;
         minutes = minutes + 1;
-        fetch = true;
+        fetch = true; // Every min we ask to fetch
         // checkRestart();
     }
 
     // the number of seconds that have passed since the last time 60 seconds was
     // reached.
-    if (delaySinceActSec == 60) {
-        timeLast2 = timeNow;
-        delaySinceActMin = delaySinceActMin + 1;
+    if (seconds_since_act == 60) {
+        seconds_since_act = 0;
+        minutes_since_act++;
     }
 
     if ((minutes % DELAY_FETCH == 0 && fetch) || (gogogofetch)) {
         if (!decoder->isRunning()) {
-            checkUpdateSounds();
+            if (!is_offline) {
+                checkUpdateSounds();
+            }
             fetch = false;
             gogogofetch = false;
         } else {
@@ -342,48 +334,97 @@ void loop() {
         hours = hours + 1;
     }
 
-    if (capteur->isTriggered(delaySinceActMin, delaySinceActSec, timeLast2,
-                             timeNow, letsgo)) {
-		infraredActivation = false;
-        if (!letsgo) {
-            Serial.println(F("Lancement du son apres delai before"));
+    if (player_state == PLAYER_STATE::PLAYING) {
+        digitalWrite(D2, HIGH);
+    } else {
+        digitalWrite(D2, LOW);
+    }
+
+    if (capteur->isTriggered(minutes_since_act, seconds_since_act, seconds_since_boot_act_timestamp,
+                             seconds_since_boot, player_state)) {
+        infraredActivation = false;
+        if (player_state != PLAYER_STATE::PLAYING && player_state != PLAYER_STATE::PAUSED) {
+            printLog(__func__, LOG_INFO, "Started song after delay");
             delay(delayBefSecSet * 1000);
-            if (currentIndex == max_sound) {
-                currentIndex = 0;
-                randomizeAll();
-            }
-            String pathString = allSoundsStored[allIndexes[currentIndex]].path;
+            capteur->pickMusic();
+            String pathString = allSoundsStored[capteur->getCurrentIndex()].path;
             char path[64];
             pathString.toCharArray(path, 64);
-            Serial.print(F("Titre: "));
-            Serial.println(allSoundsStored[allIndexes[currentIndex++]].title);
-            Serial.print(F("Path: "));
-            Serial.println(path);
-            if (decoder->isRunning()) {
-                decoder->stop();
-            }
-            source->close();
-            source->open(path);
-            decoder->begin(source, output);
+            printLog(__func__, LOG_INFO, "Titre: %s",
+                        allSoundsStored[capteur->getCurrentIndex()].title.c_str());
+            setUpTrack(path);
         }
-        letsgo = true;
-        static int lastms = 0;
-        if (decoder->isRunning()) {
-            if (millis() - lastms > 1000) {
-                lastms = millis();
-                Serial.printf("Running for %d ms...\n", lastms);
-                Serial.flush();
-            }
-            if (!decoder->loop()) decoder->stop();
-        } else {
-            Serial.println(F("MP3 done\n"));
-            delay(1000);
-            letsgo = false;
-            timeLast2 = timeNow;
-            delaySinceActSec = 0;
-            delaySinceActMin = 0;
+        handleTrack(player_state, seconds_since_act, minutes_since_act);
+    } else if (waiting_track && ((minutes_since_act * 60 + seconds_since_act >= delay_before_trigger_waiting_seconds) || player_state == PLAYER_STATE::WAITING)) {
+        if (player_state != PLAYER_STATE::WAITING) {
+            printLog(__func__, LOG_INFO, "Waiting...");
+            setUpTrack("/waiting");
+            player_state = PLAYER_STATE::WAITING;
         }
+        handleWaitingTrack(player_state, seconds_since_act, minutes_since_act);
     }
+}
+
+void handleWaitingTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
+                 uint32_t &minutes_since_act) {
+    static int lastms = 0;
+    if (decoder->isRunning()) {
+        if (millis() - lastms > 1000) {
+            lastms = millis();
+            printLog(__func__, LOG_INFO, "Running for %d s...", lastms);
+        }
+        if (!decoder->loop()) decoder->stop();
+    } else {
+        printLog(__func__, LOG_INFO, "MP3 done");
+        delay(1000);
+        player_state = PLAYER_STATE::STOPPED;
+    }
+}
+
+void handleTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
+                 uint32_t &minutes_since_act) {
+    static int lastms = 0;
+    if (decoder->isRunning()) {
+        player_state = PLAYER_STATE::PLAYING;
+        if (millis() - lastms > 1000) {
+            lastms = millis();
+            printLog(__func__, LOG_INFO, "Running for %d ms...", lastms);
+        }
+        if (!decoder->loop()) decoder->stop();
+    } else {
+        printLog(__func__, LOG_INFO, "MP3 done");
+        delay(1000);
+        player_state = PLAYER_STATE::STOPPED;
+        seconds_since_act = 0;
+        minutes_since_act = 0;
+    }
+}
+
+void setUpTrack(const char *path) {
+    if (decoder->isRunning()) {
+        decoder->stop();
+    }
+    source->close();
+    source->open(path);
+    decoder->begin(source, output);
+}
+
+void checkUpdateSounds() {
+    fetchAudiosOnline();
+    nbFetch++;
+    deleteTooMuch();
+
+    updateAudios();
+    for (uint8_t i = 0; i < max_sound; ++i) {
+        Serial.println(F("----------------------------------------"));
+        printLog(__func__, LOG_INFO, "allSoundsOnline[%d].title: %s", i,
+                 allSoundsOnline[i].title.c_str());
+        Serial.println("---------");
+        printLog(__func__, LOG_INFO, "allSoundsStored[%d].id: %d", i,
+                 allSoundsStored[i].title.c_str());
+    }
+    Serial.print("ESP.getFreeHeap(): ");
+    Serial.println(ESP.getFreeHeap());
 }
 
 void checkRestart() {
@@ -400,30 +441,8 @@ void checkRestart() {
         ESP.restart();
 }
 
-void randomizeAll() { 
-    Serial.print(F("max_sound: "));
-    Serial.println(max_sound);
-    for (unsigned char i = 0; i < max_sound; i++) {  // fill array
-        allIndexes[i] = i;
-        Serial.printf("%d,", allIndexes[i]);
-    }
-    Serial.println(F("\n done with population \n"));
-    Serial.println(F("here is the final array\n"));
-
-    for (unsigned char i = 0; i < max_sound; i++) {  // shuffle array
-        unsigned char temp = allIndexes[i];
-        unsigned char randomIndex = rand() % max_sound;
-
-        allIndexes[i] = allIndexes[randomIndex];
-        allIndexes[randomIndex] = temp;
-    }
-
-    for (unsigned char i = 0; i < max_sound; i++) {  // print array
-        Serial.printf("%d,", allIndexes[i]);
-    }
-}
-
 void fetchAudiosOnline() {
+    printLog(__func__, LOG_INFO, "Fetching online sounds");
     for (unsigned char i = 0; i < NB_SON; ++i) {
         allSoundsOnline[i].title = "";
         allSoundsOnline[i].size = 0;
@@ -434,14 +453,14 @@ void fetchAudiosOnline() {
         new BearSSL::WiFiClientSecure);
     client->setInsecure();
     HTTPClient https;
-    Serial.print(F("[HTTPS] begin...\n"));
+    printLog(__func__, LOG_INFO, "[HTTPS] begin...\n");
     if (https.begin(
             *client,
             F("https://connect.midi-agency.com/module/tracks?id_module=") +
                 idModule)) {
         // HTTP header has been send and Server response header has been handled
         int httpCode = https.GET();
-        Serial.printf("[HTTPS] GET... code: %d\n", httpCode);
+        printLog(__func__, LOG_INFO, "[HTTPS] GET... code: " + httpCode);
 
         // file found at server
         if (httpCode == HTTP_CODE_OK ||
@@ -508,11 +527,10 @@ void fetchAudiosLocal() {
             // no more files
             break;
         }
-        Serial.print(entry.name());
         if (strcmp(entry.name(), "System Volume Information") == 0) continue;
         if (entry.name()[0] == '.') continue;
-        Serial.print("\t\t");
-        Serial.println(entry.size(), DEC);
+        if (strcmp(entry.name(), "waiting") == 0) continue;
+        printLog(__func__, LOG_INFO, "%s \t %d", entry.name(), entry.size());
 
         allSoundsStored[index].path = entry.fullName();
         allSoundsStored[index].size = entry.size();
@@ -521,6 +539,7 @@ void fetchAudiosLocal() {
         entry.close();
     }
     max_sound = index - 1;
+    capteur->setMaxSound(max_sound);
 }
 
 void deleteTooMuch() {
@@ -618,6 +637,7 @@ void updateAudios() {
     for (unsigned char i = 0; i < NB_SON; ++i)
         allSoundsStored[i] = newAllSoundStored[i];
     max_sound = index;
+    capteur->setMaxSound(max_sound);
 }
 
 int checkSoundIntegrity(t_sound toCheck, String path) {
