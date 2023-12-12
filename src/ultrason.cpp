@@ -88,7 +88,8 @@ bool Ultrason::isTriggered(uint32_t& minutes_since_act,
     }
 }
 
-bool Ultrason::logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, uint32_t& last_try_timestamp_ms, uint32_t& last_sucessful_try_timestamp_ms) {
+bool Ultrason::logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, uint32_t& last_try_timestamp_ms, uint32_t& last_sucessful_try_timestamp_ms_3) {
+    static uint32_t last_sucessful_try_timestamp_ms = 0;
     static PLAYER_STATE last_player_state = PLAYER_STATE::STOPPED;
     if (player_state == PLAYER_STATE::PLAYING) {
         last_player_state = player_state;
@@ -99,12 +100,15 @@ bool Ultrason::logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, uint
     }
 
     last_try_timestamp_ms = millis();
-    printLog(__func__, LOG_LEVEL::LOG_INFO, "state_: %d", state_);
     if (measureDistance_() <= min_distance_) {
-        if (last_player_state == PLAYER_STATE::PLAYING && player_state == PLAYER_STATE::STOPPED && state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC) {
-            state_ = ULTRASON_STATE::INSIDE_FOR_X_SEC_AND_AGAIN_FOR_Y_SEC;
+        if (last_player_state == PLAYER_STATE::PLAYING && player_state == PLAYER_STATE::STOPPED) {
+            printLog(__func__, LOG_LEVEL::LOG_INFO, "last_player_state = playing and player_state = stopped");
+            if (state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC) {
+                printLog(__func__, LOG_LEVEL::LOG_INFO, "state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC");
+                state_ = ULTRASON_STATE::INSIDE_FOR_X_SEC_AND_AGAIN_FOR_Y_SEC;
+            }
             last_player_state = player_state;
-            last_sucessful_try_timestamp_ms = 0;
+            last_sucessful_try_timestamp_ms = millis();
             return false;
         } else if (state_ == ULTRASON_STATE::OUTSIDE) {
             state_ = ULTRASON_STATE::INSIDE_FOR_X_SEC;
@@ -112,12 +116,12 @@ bool Ultrason::logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, uint
         last_player_state = player_state;
         return stayedInside_(last_sucessful_try_timestamp_ms);
     } else {
-        if (player_state == PLAYER_STATE::STOPPED && last_player_state == PLAYER_STATE::PLAYING && (state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC || state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC_AND_AGAIN_FOR_Y_SEC)) {
+        if (state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC_AND_AGAIN_FOR_Y_SEC) {
             state_ = ULTRASON_STATE::INSIDE_TO_OUTSIDE;
             return true;
         }
         state_ = ULTRASON_STATE::OUTSIDE;
-        last_sucessful_try_timestamp_ms = 0;
+        last_sucessful_try_timestamp_ms = millis();
         last_player_state = player_state;
         return false;
     }
@@ -148,7 +152,6 @@ uint16_t Ultrason::measureDistance_() {
     uint32_t duration = pulseIn(pin_, HIGH);
     // Calculate the distance
     float distance_cm = duration * SOUND_SPEED / 2;
-    printLog(__func__, LOG_LEVEL::LOG_INFO, "distance_cm: %f", distance_cm);
     return distance_cm;
 }
 
