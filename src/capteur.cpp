@@ -10,7 +10,9 @@ Capteur::Capteur(const int& delayMin, const int& delaySec, const uint8_t& pin, c
 void Capteur::setMaxSound(const uint8_t& max_sound) {
     printLog(__func__, LOG_INFO, "start setMaxSound()");
     max_sound_ = max_sound;
-    randomizeAll_();
+    if (max_sound_ > 1) {
+        randomizeAll_();
+    }
 }
 
 void Capteur::randomizeAll_() { 
@@ -35,11 +37,15 @@ void Capteur::randomizeAll_() {
 }
 
 void Capteur::pickMusic() {
-    if (current_index_ == max_sound_) {
+    printLog(__func__, LOG_INFO, "_max_sound: %d", max_sound_);
+    if (current_index_ == max_sound_ - 1) {
         current_index_ = 0;
-        randomizeAll_();
+        if (max_sound_ > 1) {
+            randomizeAll_();
+        }
     }
     else {
         current_index_ ++;
     }
+    printLog(__func__, LOG_INFO, "current_index_: %d", current_index_);
 }
