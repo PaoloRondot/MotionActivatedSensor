@@ -25,13 +25,21 @@
 #define CS_PIN D1
 #define SPI_SPEED SD_SCK_MHZ(20)
 
+/**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
 constexpr uint8_t capteurType = CAPTEUR_TYPE::ULTRASON;
-constexpr uint8_t scenario = ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN;
+constexpr uint8_t scenario = ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN_MORE_THAN_X_SEC_AND_AGAIN_WHEN_STILL_WITHIN_MORE_THAN_Y_SEC;
 
+/************************* CAN WE GO OFFLINE? *******************************/
 constexpr bool is_offline = true;
 
+/******************* WAITING TRACK CONFIG (optional) *************************/
 constexpr bool waiting_track = false;
 constexpr uint16_t delay_before_trigger_waiting_seconds = 0;
+
+/************************* ONLY FOR ULTRASON *******************************/
+constexpr uint32_t time_within_minimum_sec = 5;
+constexpr uint32_t time_within_minimum_sec_2 = 10;
+constexpr uint32_t min_distance_cm = 10;
 
 /**
  * @version 1.3.4
@@ -273,7 +281,7 @@ void setup() {
         capteur = new Infrarouge(delayMinSet, delaySecSet, D0, scenario);
     }
     else if (capteurType == CAPTEUR_TYPE::ULTRASON) {
-      capteur = new Ultrason(delayMinSet, delaySecSet, D0, scenario, D3, 10);
+      capteur = new Ultrason(delayMinSet, delaySecSet, D0, scenario, D3, min_distance_cm, time_within_minimum_sec, time_within_minimum_sec_2);
     }
     else {
         printLog(__func__, LOG_ERROR, "Capteur non reconnu");

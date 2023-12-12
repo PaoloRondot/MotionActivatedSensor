@@ -21,5 +21,5 @@ public:
     Pir(const int& delayMin, const int& delaySec, const uint8_t& pin, const int& scenario);
     ~Pir();
 
-    virtual bool isTriggered(uint32_t &minutes_since_act, uint8_t &seconds_since_act, uint32_t seconds_since_boot_act_timestamp, const uint32_t &seconds_since_boot,  PLAYER_STATE &player_state) override;
+    bool isTriggered(uint32_t &minutes_since_act, uint8_t &seconds_since_act, uint32_t seconds_since_boot_act_timestamp, const uint32_t &seconds_since_boot,  PLAYER_STATE &player_state) override;
 };
