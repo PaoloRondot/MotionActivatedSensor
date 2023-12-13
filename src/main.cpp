@@ -26,14 +26,14 @@
 #define SPI_SPEED SD_SCK_MHZ(20)
 
 /**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
-constexpr uint8_t capteurType = CAPTEUR_TYPE::BOUTON;
-constexpr uint8_t scenario = BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESTART;
+constexpr uint8_t capteurType = CAPTEUR_TYPE::ULTRASON;
+constexpr uint8_t scenario = ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN_MORE_THAN_X_SEC_AND_AGAIN_WHEN_STILL_WITHIN_MORE_THAN_Y_SEC;
 
 /************************* CAN WE GO OFFLINE? *******************************/
 constexpr bool is_offline = true;
 
 /******************* WAITING TRACK CONFIG (optional) *************************/
-constexpr bool waiting_track = true;
+constexpr bool waiting_track = false;
 constexpr uint16_t delay_before_trigger_waiting_seconds = 0;
 
 /************************* ONLY FOR ULTRASON *******************************/
