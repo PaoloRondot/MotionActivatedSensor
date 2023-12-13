@@ -26,14 +26,14 @@
 #define SPI_SPEED SD_SCK_MHZ(20)
 
 /**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
-constexpr uint8_t capteurType = CAPTEUR_TYPE::PIR;
-constexpr uint8_t scenario = PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE;
+constexpr uint8_t capteurType = CAPTEUR_TYPE::BOUTON;
+constexpr uint8_t scenario = BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESTART;
 
 /************************* CAN WE GO OFFLINE? *******************************/
 constexpr bool is_offline = false;
 
 /******************* WAITING TRACK CONFIG (optional) *************************/
-constexpr bool waiting_track = false;
+constexpr bool waiting_track = true;
 constexpr uint16_t delay_before_trigger_waiting_seconds = 0;
 
 /************************* ONLY FOR ULTRASON *******************************/
@@ -366,7 +366,7 @@ void loop() {
     } else if (waiting_track && ((minutes_since_act * 60 + seconds_since_act >= delay_before_trigger_waiting_seconds) || player_state == PLAYER_STATE::WAITING)) {
         if (player_state != PLAYER_STATE::WAITING) {
             printLog(__func__, LOG_INFO, "Waiting...");
-            setUpTrack("/waiting");
+            setUpTrack("/waiting.mp3");
             player_state = PLAYER_STATE::WAITING;
         }
         handleWaitingTrack(player_state, seconds_since_act, minutes_since_act);
