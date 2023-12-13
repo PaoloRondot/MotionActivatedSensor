@@ -159,15 +159,15 @@ void Ultrason::pickMusicSpecial_()
 {
     switch(state_) {
         case ULTRASON_STATE::INSIDE_FOR_X_SEC:
-            current_index_ = 2;
+            current_index_ = 0;
             break;
         case ULTRASON_STATE::INSIDE_FOR_X_SEC_AND_AGAIN_FOR_Y_SEC:
             printLog(__func__, LOG_LEVEL::LOG_INFO, "state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC_AND_AGAIN_FOR_Y_SEC");
-            current_index_ = 0;
+            current_index_ = 1;
             break;
         case ULTRASON_STATE::INSIDE_TO_OUTSIDE:
             printLog(__func__, LOG_LEVEL::LOG_INFO, "state_ == ULTRASON_STATE::INSIDE_TO_OUTSIDE");
-            current_index_ = 1;
+            current_index_ = 2;
             break;
         default:
             break;
