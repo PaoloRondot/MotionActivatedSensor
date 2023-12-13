@@ -30,7 +30,7 @@ constexpr uint8_t capteurType = CAPTEUR_TYPE::BOUTON;
 constexpr uint8_t scenario = BOUTON_SCENARIO::PLAY_WHEN_PRESSED_AND_RESTART;
 
 /************************* CAN WE GO OFFLINE? *******************************/
-constexpr bool is_offline = false;
+constexpr bool is_offline = true;
 
 /******************* WAITING TRACK CONFIG (optional) *************************/
 constexpr bool waiting_track = true;
@@ -537,7 +537,7 @@ void fetchAudiosLocal() {
         }
         if (strcmp(entry.name(), "System Volume Information") == 0) continue;
         if (entry.name()[0] == '.') continue;
-        if (strcmp(entry.name(), "waiting") == 0) continue;
+        if (strcmp(entry.name(), "waiting.mp3") == 0) continue;
         printLog(__func__, LOG_INFO, "%s \t %d", entry.name(), entry.size());
 
         allSoundsStored[index].path = entry.fullName();
@@ -546,7 +546,7 @@ void fetchAudiosLocal() {
 
         entry.close();
     }
-    max_sound = index - 1;
+    max_sound = index;
     capteur->setMaxSound(max_sound);
 }
 

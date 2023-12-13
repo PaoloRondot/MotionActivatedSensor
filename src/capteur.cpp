@@ -8,7 +8,7 @@ Capteur::Capteur(const int& delayMin, const int& delaySec, const uint8_t& pin, c
 }
 
 void Capteur::setMaxSound(const uint8_t& max_sound) {
-    printLog(__func__, LOG_INFO, "start setMaxSound()");
+    printLog(__func__, LOG_INFO, "start setMaxSound() max_sound: %d", max_sound);
     max_sound_ = max_sound;
     if (max_sound_ > 1) {
         randomizeAll_();
