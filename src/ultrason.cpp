@@ -99,6 +99,9 @@ bool Ultrason::logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, uint
         return false;
     }
 
+    printLog(__func__, LOG_LEVEL::LOG_INFO, "last_try_timestamp_ms: %d", last_try_timestamp_ms);
+    printLog(__func__, LOG_LEVEL::LOG_INFO, "player_state: %d", player_state);
+
     last_try_timestamp_ms = millis();
     if (measureDistance_() <= min_distance_) {
         if (last_player_state == PLAYER_STATE::PLAYING && player_state == PLAYER_STATE::STOPPED) {
@@ -152,6 +155,7 @@ uint16_t Ultrason::measureDistance_() {
     uint32_t duration = pulseIn(pin_, HIGH);
     // Calculate the distance
     float distance_cm = duration * SOUND_SPEED / 2;
+    printLog(__func__, LOG_LEVEL::LOG_INFO, "distance_cm: %f", distance_cm);
     return distance_cm;
 }
 
