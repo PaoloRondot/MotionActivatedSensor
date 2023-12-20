@@ -99,7 +99,6 @@ bool Ultrason::logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, uint
         return false;
     }
 
-    printLog(__func__, LOG_LEVEL::LOG_INFO, "last_try_timestamp_ms: %d", last_try_timestamp_ms);
     printLog(__func__, LOG_LEVEL::LOG_INFO, "player_state: %d", player_state);
 
     last_try_timestamp_ms = millis();
