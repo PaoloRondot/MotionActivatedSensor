@@ -304,6 +304,9 @@ void loop() {
     if (seconds_last != seconds) {
         seconds_since_act++;
         printLog(__func__, LOG_INFO, "seconds_since_act: %d", seconds_since_act);
+        printLog(__func__, LOG_INFO, "minutes_since_act: %d", minutes_since_act);
+        printLog(__func__, LOG_INFO, "delayMinSet: %d", delayMinSet);
+        printLog(__func__, LOG_INFO, "delaySecSet: %d", delaySecSet);
     }
     seconds_last = seconds;
 
@@ -500,6 +503,7 @@ void fetchAudiosOnline() {
         delayMinSet = delayMinSet_str.toInt();
         delaySecSet = delaySecSet_str.toInt();
         delayBefSecSet = delayBefSecSet_str.toInt();
+        capteur->updateDelay(delayMinSet, delaySecSet);
         while (true) {
             if (payload.indexOf("\"id\":", lastIndex + 1) != -1) {
                 lastIndex = payload.indexOf("\"id\":", lastIndex + 1);

@@ -28,6 +28,8 @@ public:
     void setMaxSound(const uint8_t& max_sound);
     uint8_t getCurrentIndex() const { return current_index_; }
 
+    void updateDelay(const int& delayMin, const int& delaySec);
+
 protected:
     void randomizeAll_();
 

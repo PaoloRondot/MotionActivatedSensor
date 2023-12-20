@@ -49,3 +49,8 @@ void Capteur::pickMusic() {
     }
     printLog(__func__, LOG_INFO, "current_index_: %d", current_index_);
 }
+
+void Capteur::updateDelay(const int& delayMin, const int& delaySec) {
+    delayMin_ = delayMin;
+    delaySec_ = delaySec;
+}
