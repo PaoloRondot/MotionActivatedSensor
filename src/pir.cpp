@@ -3,6 +3,9 @@
 #define MIN_LOOP 10000
 #define MIN_LOOP_2 100
 
+extern void printLog(const char* function, LOG_LEVEL level, const char* message,
+                     ...);
+
 Pir::Pir(const int& delayMin, const int& delaySec, const uint8_t& pin, const int& scenario)
 :Capteur(delayMin, delaySec, pin, scenario)
 {
@@ -13,6 +16,7 @@ Pir::~Pir()
 }
 
 bool Pir::isTriggered(uint32_t &minutes_since_act, uint8_t &seconds_since_act, uint32_t seconds_since_boot_act_timestamp, const uint32_t &seconds_since_boot, PLAYER_STATE &player_state) {
+    printLog(__func__, LOG_LEVEL::LOG_INFO, "scenario: %d", scenario_);
     switch (scenario_)
     {
     case PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE:
