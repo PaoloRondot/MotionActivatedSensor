@@ -303,6 +303,7 @@ void loop() {
     seconds = seconds_since_boot - current_min_in_seconds;
     if (seconds_last != seconds) {
         seconds_since_act++;
+        printLog(__func__, LOG_INFO, "seconds_since_act: %d", seconds_since_act);
     }
     seconds_last = seconds;
 
