@@ -16,7 +16,6 @@ Pir::~Pir()
 }
 
 bool Pir::isTriggered(uint32_t &minutes_since_act, uint8_t &seconds_since_act, uint32_t seconds_since_boot_act_timestamp, const uint32_t &seconds_since_boot, PLAYER_STATE &player_state) {
-    printLog(__func__, LOG_LEVEL::LOG_INFO, "scenario: %d", scenario_);
     switch (scenario_)
     {
     case PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE:
