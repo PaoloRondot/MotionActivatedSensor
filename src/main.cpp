@@ -398,7 +398,9 @@ void handleTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
             lastms = millis();
             printLog(__func__, LOG_INFO, "Running for %d ms...", lastms);
         }
+        printLog(__func__, LOG_INFO, "decoder->isRunning() = true");
         if (!decoder->loop()) decoder->stop();
+        printLog(__func__, LOG_INFO, "decoder->loop() = true");
     } else {
         printLog(__func__, LOG_INFO, "MP3 done");
         delay(1000);
