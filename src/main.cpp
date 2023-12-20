@@ -303,10 +303,6 @@ void loop() {
     seconds = seconds_since_boot - current_min_in_seconds;
     if (seconds_last != seconds) {
         seconds_since_act++;
-        printLog(__func__, LOG_INFO, "seconds_since_act: %d", seconds_since_act);
-        printLog(__func__, LOG_INFO, "minutes_since_act: %d", minutes_since_act);
-        printLog(__func__, LOG_INFO, "delayMinSet: %d", delayMinSet);
-        printLog(__func__, LOG_INFO, "delaySecSet: %d", delaySecSet);
     }
     seconds_last = seconds;
 
@@ -317,7 +313,7 @@ void loop() {
         current_min_in_seconds = seconds_since_boot;
         minutes = minutes + 1;
         fetch = true; // Every min we ask to fetch
-        // checkRestart();
+        checkRestart();
     }
 
     // the number of seconds that have passed since the last time 60 seconds was

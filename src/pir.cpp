@@ -19,7 +19,6 @@ bool Pir::isTriggered(uint32_t &minutes_since_act, uint8_t &seconds_since_act, u
     switch (scenario_)
     {
     case PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE:
-    // printLog(__func__, LOG_LEVEL::LOG_INFO, "minutes_since_act: %d, seconds_since_act: %d, delayMin_: %d, delaySec_: %d, digitalRead(pin_): %d, player_state: %d", minutes_since_act, seconds_since_act, delayMin_, delaySec_, digitalRead(pin_), player_state);
         if (((minutes_since_act * 60 + seconds_since_act >= delayMin_ * 60 + delaySec_) && digitalRead (pin_)) || player_state == PLAYER_STATE::PLAYING)
             return true;
         else return false;
