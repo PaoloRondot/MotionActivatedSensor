@@ -363,6 +363,7 @@ void loop() {
             setUpTrack(path);
         }
         handleTrack(player_state, seconds_since_act, minutes_since_act);
+        delay(10);
     } else if (waiting_track && ((minutes_since_act * 60 + seconds_since_act >= delay_before_trigger_waiting_seconds) || player_state == PLAYER_STATE::WAITING)) {
         if (player_state != PLAYER_STATE::WAITING) {
             printLog(__func__, LOG_INFO, "Waiting...");
@@ -398,9 +399,7 @@ void handleTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
             lastms = millis();
             printLog(__func__, LOG_INFO, "Running for %d ms...", lastms);
         }
-        printLog(__func__, LOG_INFO, "decoder->isRunning() = true");
         if (!decoder->loop()) decoder->stop();
-        printLog(__func__, LOG_INFO, "decoder->loop() = true");
     } else {
         printLog(__func__, LOG_INFO, "MP3 done");
         delay(1000);
@@ -411,7 +410,9 @@ void handleTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
 }
 
 void setUpTrack(const char *path) {
+    printLog(__func__, LOG_INFO, "Setting up track");
     if (decoder->isRunning()) {
+        printLog(__func__, LOG_INFO, "Stopping decoder");
         decoder->stop();
     }
     source->close();
