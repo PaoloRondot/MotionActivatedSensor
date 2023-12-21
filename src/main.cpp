@@ -23,7 +23,7 @@
 #define TIME_MINS_RESTART 0
 
 #define CS_PIN D1
-#define SPI_SPEED SD_SCK_MHZ(20)
+#define SPI_SPEED SD_SCK_MHZ(4)
 
 /**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
 constexpr uint8_t capteurType = CAPTEUR_TYPE::PIR;

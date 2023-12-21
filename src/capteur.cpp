@@ -44,7 +44,7 @@ void Capteur::pickMusic() {
             randomizeAll_();
         }
     }
-    else {
+    else if (current_index_ < max_sound_ - 1) {
         current_index_ ++;
     }
     printLog(__func__, LOG_INFO, "current_index_: %d", current_index_);
