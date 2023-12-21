@@ -132,7 +132,8 @@ PLAYER_STATE player_state = STOPPED;
 unsigned char currentIndex = 0;
 unsigned int nbFetch = 0;
 
-String idModule = "f382d879def3db97acfdefeb9bc87163";
+String idModule = "7f68d438acbc1beb2ccb494a9ffa2a6a";
+// String idModule = "f382d879def3db97acfdefeb9bc87163";
 
 AudioGeneratorMP3 *decoder = NULL;
 AudioFileSourceSD *source = NULL;
@@ -195,11 +196,11 @@ Capteur *capteur;
 
 void printLog(const char* function, LOG_LEVEL level, const char* message, ...) {
     if (level == LOG_INFO) {
-        Serial.print("[INFO] ");
+        Serial.print("\x1b[32m" "[INFO] ");
     } else if (level == LOG_WARNING) {
-        Serial.print("[WARNING] ");
+        Serial.print("\x1b[33m" "[WARNING] ");
     } else if (level == LOG_ERROR) {
-        Serial.print("[ERROR] ");
+        Serial.print("\x1b[31m" "[ERROR] ");
     }
     Serial.print(function);
     Serial.print(" : ");
@@ -209,7 +210,8 @@ void printLog(const char* function, LOG_LEVEL level, const char* message, ...) {
     char buffer[256];
     vsnprintf(buffer, 256, message, args);
     va_end(args);
-    Serial.println(buffer);
+    Serial.print(buffer);
+    Serial.println("\x1b[0m");
 }
 
 void setup() {
@@ -434,19 +436,16 @@ void checkUpdateSounds() {
         printLog(__func__, LOG_INFO, "allSoundsStored[%d].id: %d", i,
                  allSoundsStored[i].title.c_str());
     }
-    Serial.print("ESP.getFreeHeap(): ");
-    Serial.println(ESP.getFreeHeap());
+    printLog(__func__, LOG_INFO, "ESP.getFreeHeap(): %d", ESP.getFreeHeap());
 }
 
 void checkRestart() {
     timeClient.update();
     int currentHour = timeClient.getHours();
-    Serial.print("Hour: ");
-    Serial.println(currentHour);
 
     int currentMinute = timeClient.getMinutes();
-    Serial.print("Minutes: ");
-    Serial.println(currentMinute);
+
+    printLog(__func__, LOG_INFO, "Time: %d:%d", currentHour, currentMinute);
     if ((currentHour == TIME_HOURS_RESTART) &&
         (currentMinute == TIME_MINS_RESTART))
         ESP.restart();
@@ -479,8 +478,8 @@ void fetchAudiosOnline() {
             payload = https.getString();
             Serial.println(payload);
         } else {
-            Serial.printf("[HTTPS] GET... failed, error: %s\n",
-                          https.errorToString(httpCode).c_str());
+            printLog(__func__, LOG_ERROR, "[HTTPS] GET... failed, error: %s\n",
+                     https.errorToString(httpCode).c_str());
         }
     }
     https.end();
@@ -681,11 +680,11 @@ int removeAudio(String filename) {
         if (SD.remove(filename)) {
             Serial.println(F("Son supprimé avec succès"));
         } else {
-            Serial.println(F("Erreur lors de la suppression du son"));
+            printLog(__func__, LOG_ERROR, "Erreur lors de la suppression du son");
             return -1;
         }
     } else {
-        Serial.println(F("Son non présent"));
+        printLog(__func__, LOG_WARNING, "Son non présent");
         return -1;
     }
     dataFile.close();
