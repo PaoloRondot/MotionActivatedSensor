@@ -571,8 +571,8 @@ void deleteTooMuch() {
             }
         }
         if (toRemove) {
-            Serial.print("to remove: ");
-            Serial.println(allSoundsStored[stored].title);
+            printLog(__func__, LOG_WARNING, "to remove: %s",
+                     allSoundsStored[stored].title.c_str());
             removeAudio(allSoundsStored[stored].path);
         }
     }
@@ -621,12 +621,16 @@ void updateAudios() {
                         "/" + allSoundsOnline[online].title;
                     newAllSoundStored[index++].title =
                         allSoundsOnline[online].title;
-                    Serial.println(F("Audio properly installed"));
+                    printLog(__func__, LOG_INFO, "Audio properly installed");
                 } else {
-                    Serial.println(F("Audio was deleted because not complete"));
+                    printLog(__func__, LOG_ERROR,
+                             "Audio was deleted because not complete");
                 }
             } else
-                Serial.println(F("Audio could not be downloaded"));
+                printLog(__func__, LOG_ERROR, "Audio could not be downloaded");
+        } else {
+            checkSoundIntegrity(allSoundsOnline[online],
+                                         "/" + allSoundsOnline[online].title);
         }
     }
     // Enfin, il faut supprimer les sons qui sont en trop en comparant
@@ -665,10 +669,11 @@ int checkSoundIntegrity(t_sound toCheck, String path) {
         return 0;
     else {
         if (SD.remove(path)) {
-            Serial.println(F("Son incomplet supprimé avec succès"));
+            printLog(__func__, LOG_WARNING, "Son incomplet supprimé avec succès");
             return -1;
         } else {
-            Serial.println(F("Erreur lors de la suppression du son incomplet"));
+            printLog(__func__, LOG_ERROR,
+                     "Erreur lors de la suppression du son incomplet");
             return -2;
         }
     }
