@@ -22,7 +22,7 @@
 #define TIME_HOURS_RESTART 8
 #define TIME_MINS_RESTART 0
 
-#define CS_PIN D1
+#define CS_PIN D0
 #define SPI_SPEED SD_SCK_MHZ(4)
 
 /**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
@@ -215,8 +215,8 @@ void printLog(const char* function, LOG_LEVEL level, const char* message, ...) {
 }
 
 void setup() {
+    pinMode(D1, INPUT);
     pinMode(D2, OUTPUT);
-    pinMode(D0, INPUT);
     pinMode(D3, OUTPUT);
     Serial.begin(115200);  // Initialising if(DEBUG)Serial Monitor
     delay(10);
@@ -273,17 +273,17 @@ void setup() {
 
     if (capteurType == CAPTEUR_TYPE::PIR) {
         // capteur = new PIR(0, 10, D0, scenario);
-        capteur = new Pir(delayMinSet, delaySecSet, D0, scenario);
+        capteur = new Pir(delayMinSet, delaySecSet, D1, scenario);
     } else if (capteurType == CAPTEUR_TYPE::BOUTON) {
 
         // capteur = new Bouton(0, 10, D3, scenario);
-        capteur = new Bouton(delayMinSet, delaySecSet, D0, scenario);
+        capteur = new Bouton(delayMinSet, delaySecSet, D1, scenario);
     } else if (capteurType == CAPTEUR_TYPE::INFRAROUGE) {
         // capteur = new Infrarouge(0, 10, D0, scenario);
-        capteur = new Infrarouge(delayMinSet, delaySecSet, D0, scenario);
+        capteur = new Infrarouge(delayMinSet, delaySecSet, D1, scenario);
     }
     else if (capteurType == CAPTEUR_TYPE::ULTRASON) {
-      capteur = new Ultrason(delayMinSet, delaySecSet, D0, scenario, D3, min_distance_cm, time_within_minimum_sec, time_within_minimum_sec_2);
+      capteur = new Ultrason(delayMinSet, delaySecSet, D1, scenario, D3, min_distance_cm, time_within_minimum_sec, time_within_minimum_sec_2);
     }
     else {
         printLog(__func__, LOG_ERROR, "Capteur non reconnu");
