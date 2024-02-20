@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <EEPROM.h>
-#include <ESP8266HTTPClient.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266WiFi.h>
+#include <HTTPClient.h>
+#include <WebServer.h>
+#include <WiFi.h>
 #include <NTPClient.h>
 #include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager
 #include <WiFiUdp.h>
@@ -22,8 +22,17 @@
 #define TIME_HOURS_RESTART 8
 #define TIME_MINS_RESTART 0
 
-#define CS_PIN D0
+#define CS_PIN 5
+#define SD_SCK_MHZ(maxMhz) (1000000UL*(maxMhz))
 #define SPI_SPEED SD_SCK_MHZ(4)
+
+#define I2S_DIN 12
+#define I2S_WCLK 27
+#define I2S_BCLK 32
+
+#define INPUT_PIN_1 17
+#define OUTPUT_PIN_1 16
+#define OUTPUT_PIN_2 15
 
 /**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
 constexpr uint8_t capteurType = CAPTEUR_TYPE::PIR;
@@ -31,6 +40,9 @@ constexpr uint8_t scenario = PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE;
 
 /************************* CAN WE GO OFFLINE? *******************************/
 constexpr bool is_offline = false;
+
+/************************** USE INTERNAL DAC? ********************************/
+constexpr bool internal_dac = false;
 
 /******************* WAITING TRACK CONFIG (optional) *************************/
 constexpr bool waiting_track = false;
@@ -106,7 +118,7 @@ constexpr uint32_t min_distance_cm = 10;
  *
  * @version 2.1.1
  *  @date 14-06-2023
- *   @feature D3 pullup
+ *   @feature OUTPUT_PIN_2 pullup
  *
  * @version 2.1.2
  *  @date 14-06-2023
@@ -160,7 +172,7 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
 // Establishing Local server at port 80 whenever required
-ESP8266WebServer server(80);
+WebServer server(80);
 
 typedef struct sound {
     String title;
@@ -177,9 +189,9 @@ int     checkSoundIntegrity(t_sound toCheck, String path);
 void    checkRestart();
 void    checkUpdateSounds();
 void    deleteTooMuch();
-int     downloadAudio(t_sound soundToUpdade);
+int     downloadAudio(t_sound soundToUpdate);
 void    fetchAudiosLocal();
-void    fetchAudiosOnline();
+bool    fetchAudiosOnline();
 void    handleWaitingTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
                  uint32_t &minutes_since_act);
 void    handleTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
@@ -195,13 +207,21 @@ uint8_t max_sound = 0;
 Capteur *capteur;
 
 void printLog(const char* function, LOG_LEVEL level, const char* message, ...) {
-    if (level == LOG_INFO) {
-        Serial.print("\x1b[32m" "[INFO] ");
-    } else if (level == LOG_WARNING) {
-        Serial.print("\x1b[33m" "[WARNING] ");
-    } else if (level == LOG_ERROR) {
-        Serial.print("\x1b[31m" "[ERROR] ");
+    switch(level) {
+        case LOG_SUCCESS:
+            Serial.print("\x1b[32m" "[SUCCESS] ");
+            break;
+        case LOG_WARNING:
+            Serial.print("\x1b[33m" "[WARNING] ");
+            break;
+        case LOG_ERROR:
+            Serial.print("\x1b[31m" "[ERROR] ");
+            break;
+        default:
+            Serial.print("[INFO] ");
+            break;
     }
+
     Serial.print(function);
     Serial.print(" : ");
 
@@ -215,12 +235,12 @@ void printLog(const char* function, LOG_LEVEL level, const char* message, ...) {
 }
 
 void setup() {
-    pinMode(D1, INPUT);
-    pinMode(D2, OUTPUT);
-    pinMode(D3, OUTPUT);
+    pinMode(INPUT_PIN_1, INPUT);
+    pinMode(OUTPUT_PIN_1, OUTPUT);
+    pinMode(OUTPUT_PIN_2, OUTPUT);
     Serial.begin(115200);  // Initialising if(DEBUG)Serial Monitor
     delay(10);
-    pinMode(LED_BUILTIN, OUTPUT);
+    // pinMode(LED_BUILTIN, OUTPUT);
     printLog(__func__, LOG_INFO, "Starting " VERSION_CODE);
 
     //---------------------------------------- Read eeprom for ssid and pass
@@ -250,20 +270,25 @@ void setup() {
         // ESP.restart();
     } else {
         // if you get here you have connected to the WiFi
-        printLog(__func__, LOG_INFO, "Connected");
+        printLog(__func__, LOG_SUCCESS, "Connected");
     }
 
     audioLogger = &Serial;
 
     source = new AudioFileSourceSD();
-    output = new AudioOutputI2S();
+    output = new AudioOutputI2S(0,internal_dac);
     decoder = new AudioGeneratorMP3();
 
-    if (!SD.begin(CS_PIN, SPI_SPEED)) {
+    if (!output->SetPinout(I2S_BCLK, I2S_WCLK, I2S_DIN)) {
+        printLog(__func__, LOG_ERROR, "Error setting I2S pinout");
+        return;
+    }
+
+    if (!SD.begin()) {
         printLog(__func__, LOG_ERROR, "Probleme carte SD");
         return;
     }
-    printLog(__func__, LOG_INFO, "SD initialisee.");
+    printLog(__func__, LOG_SUCCESS, "SD initialisee.");
 
     for (unsigned char i = 0; i < NB_SON; ++i) {
         allSoundsOnline[i].title.reserve(25);
@@ -273,17 +298,17 @@ void setup() {
 
     if (capteurType == CAPTEUR_TYPE::PIR) {
         // capteur = new PIR(0, 10, D0, scenario);
-        capteur = new Pir(delayMinSet, delaySecSet, D1, scenario);
+        capteur = new Pir(delayMinSet, delaySecSet, INPUT_PIN_1, scenario);
     } else if (capteurType == CAPTEUR_TYPE::BOUTON) {
 
-        // capteur = new Bouton(0, 10, D3, scenario);
-        capteur = new Bouton(delayMinSet, delaySecSet, D1, scenario);
+        // capteur = new Bouton(0, 10, OUTPUT_PIN_2, scenario);
+        capteur = new Bouton(delayMinSet, delaySecSet, INPUT_PIN_1, scenario);
     } else if (capteurType == CAPTEUR_TYPE::INFRAROUGE) {
         // capteur = new Infrarouge(0, 10, D0, scenario);
-        capteur = new Infrarouge(delayMinSet, delaySecSet, D1, scenario);
+        capteur = new Infrarouge(delayMinSet, delaySecSet, INPUT_PIN_1, scenario);
     }
     else if (capteurType == CAPTEUR_TYPE::ULTRASON) {
-      capteur = new Ultrason(delayMinSet, delaySecSet, D1, scenario, D3, min_distance_cm, time_within_minimum_sec, time_within_minimum_sec_2);
+      capteur = new Ultrason(delayMinSet, delaySecSet, INPUT_PIN_1, scenario, OUTPUT_PIN_2, min_distance_cm, time_within_minimum_sec, time_within_minimum_sec_2);
     }
     else {
         printLog(__func__, LOG_ERROR, "Capteur non reconnu");
@@ -345,9 +370,9 @@ void loop() {
     }
 
     if (player_state == PLAYER_STATE::PLAYING) {
-        digitalWrite(D2, HIGH);
+        digitalWrite(OUTPUT_PIN_1, HIGH);
     } else {
-        digitalWrite(D2, LOW);
+        digitalWrite(OUTPUT_PIN_1, LOW);
     }
 
     if (capteur->isTriggered(minutes_since_act, seconds_since_act, seconds_since_boot_act_timestamp,
@@ -357,7 +382,7 @@ void loop() {
             printLog(__func__, LOG_INFO, "Started song after delay");
             delay(delayBefSecSet * 1000);
             capteur->pickMusic();
-            String pathString = allSoundsStored[capteur->getCurrentIndex()].path;
+            String pathString = '/' + allSoundsStored[capteur->getCurrentIndex()].path;
             char path[64];
             pathString.toCharArray(path, 64);
             printLog(__func__, LOG_INFO, "Titre: %s",
@@ -386,7 +411,7 @@ void handleWaitingTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
         }
         if (!decoder->loop()) decoder->stop();
     } else {
-        printLog(__func__, LOG_INFO, "MP3 done");
+        printLog(__func__, LOG_SUCCESS, "MP3 done");
         delay(1000);
         player_state = PLAYER_STATE::STOPPED;
     }
@@ -401,9 +426,11 @@ void handleTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
             lastms = millis();
             printLog(__func__, LOG_INFO, "Running for %d ms...", lastms);
         }
-        if (!decoder->loop()) decoder->stop();
+        if (!decoder->loop()) {
+            decoder->stop();
+        }
     } else {
-        printLog(__func__, LOG_INFO, "MP3 done");
+        printLog(__func__, LOG_SUCCESS, "MP3 done");
         delay(1000);
         player_state = PLAYER_STATE::STOPPED;
         seconds_since_act = 0;
@@ -418,18 +445,19 @@ void setUpTrack(const char *path) {
         decoder->stop();
     }
     source->close();
-    source->open(path);
+    if (!source->open(path)) printLog(__func__, LOG_ERROR, "source open failed");
     decoder->begin(source, output);
 }
 
 void checkUpdateSounds() {
-    fetchAudiosOnline();
-    nbFetch++;
-    deleteTooMuch();
+    if (fetchAudiosOnline()) {
+        nbFetch++;
+        deleteTooMuch();
+        updateAudios();
+    }
 
-    updateAudios();
     for (uint8_t i = 0; i < max_sound; ++i) {
-        Serial.println(F("----------------------------------------"));
+        Serial.println("----------------------------------------");
         printLog(__func__, LOG_INFO, "allSoundsOnline[%d].title: %s", i,
                  allSoundsOnline[i].title.c_str());
         Serial.println("---------");
@@ -451,22 +479,13 @@ void checkRestart() {
         ESP.restart();
 }
 
-void fetchAudiosOnline() {
+bool fetchAudiosOnline() {
     printLog(__func__, LOG_INFO, "Fetching online sounds");
-    for (unsigned char i = 0; i < NB_SON; ++i) {
-        allSoundsOnline[i].title = "";
-        allSoundsOnline[i].size = 0;
-        allSoundsOnline[i].id = 0;
-    }
     String payload;
-    std::unique_ptr<BearSSL::WiFiClientSecure> client(
-        new BearSSL::WiFiClientSecure);
-    client->setInsecure();
     HTTPClient https;
     printLog(__func__, LOG_INFO, "[HTTPS] begin...\n");
     if (https.begin(
-            *client,
-            F("https://connect.midi-agency.com/module/tracks?id_module=") +
+            "https://connect.midi-agency.com/module/tracks?id_module=" +
                 idModule)) {
         // HTTP header has been send and Server response header has been handled
         int httpCode = https.GET();
@@ -480,9 +499,17 @@ void fetchAudiosOnline() {
         } else {
             printLog(__func__, LOG_ERROR, "[HTTPS] GET... failed, error: %s\n",
                      https.errorToString(httpCode).c_str());
+            return false;
         }
     }
     https.end();
+
+    for (unsigned char i = 0; i < NB_SON; ++i) {
+        allSoundsOnline[i].title = "";
+        allSoundsOnline[i].size = 0;
+        allSoundsOnline[i].id = 0;
+    }
+
     if (payload.indexOf("\"is_error\":false") != -1) {
         int lastIndex = 0;
         int index = 0;
@@ -524,8 +551,11 @@ void fetchAudiosOnline() {
                 break;
         }
         Serial.println("done fetching");
-    } else
-        Serial.println(F("is_error = true"));
+    } else {
+        Serial.println("is_error = true");
+        return false;
+    }
+    return true;
 }
 
 void fetchAudiosLocal() {
@@ -543,7 +573,7 @@ void fetchAudiosLocal() {
         if (strcmp(entry.name(), "waiting.mp3") == 0) continue;
         printLog(__func__, LOG_INFO, "%s \t %d", entry.name(), entry.size());
 
-        allSoundsStored[index].path = entry.fullName();
+        allSoundsStored[index].path = entry.name();
         allSoundsStored[index].size = entry.size();
         allSoundsStored[index++].title = entry.name();
 
@@ -562,8 +592,7 @@ void deleteTooMuch() {
             if (allSoundsOnline[online].title ==
                 allSoundsStored[stored].title) {
                 newAllSoundStored[index] =
-                    allSoundsStored[stored];  // On copie l'ancien dans le
-                                              // nouveau
+                    allSoundsStored[stored];  // On copie l'ancien dans le nouveau
                 newAllSoundStored[index++].id =
                     allSoundsOnline[online].id;  // On rajoute l'id
                 toRemove = false;
@@ -573,7 +602,7 @@ void deleteTooMuch() {
         if (toRemove) {
             printLog(__func__, LOG_WARNING, "to remove: %s",
                      allSoundsStored[stored].title.c_str());
-            removeAudio(allSoundsStored[stored].path);
+            removeAudio('/' + allSoundsStored[stored].path);
         }
     }
     for (unsigned int i = 0; i < NB_SON; ++i)
@@ -604,8 +633,8 @@ void updateAudios() {
         }
         // Si il faut downloader le son en ligne pour l'avoir en local
         if (toUpdate) {
-            Serial.println(F("--------- TOUPDATE ---------"));
-            Serial.println(F("allSoundsOnline[online]"));
+            Serial.println("--------- TOUPDATE ---------");
+            Serial.println("allSoundsOnline[online]");
             Serial.println(allSoundsOnline[online].id);
             Serial.println(allSoundsOnline[online].title);
             Serial.println(allSoundsOnline[online].path);
@@ -621,7 +650,7 @@ void updateAudios() {
                         "/" + allSoundsOnline[online].title;
                     newAllSoundStored[index++].title =
                         allSoundsOnline[online].title;
-                    printLog(__func__, LOG_INFO, "Audio properly installed");
+                    printLog(__func__, LOG_SUCCESS, "Audio properly installed");
                 } else {
                     printLog(__func__, LOG_ERROR,
                              "Audio was deleted because not complete");
@@ -683,7 +712,7 @@ int removeAudio(String filename) {
     File dataFile = SD.open(filename, FILE_READ);
     if (dataFile) {
         if (SD.remove(filename)) {
-            Serial.println(F("Son supprimé avec succès"));
+            Serial.println("Son supprimé avec succès");
         } else {
             printLog(__func__, LOG_ERROR, "Erreur lors de la suppression du son");
             return -1;
@@ -696,84 +725,84 @@ int removeAudio(String filename) {
     return 0;
 }
 
-int downloadAudio(t_sound soundToUpdade) {
-    std::unique_ptr<BearSSL::WiFiClientSecure> client(
-        new BearSSL::WiFiClientSecure);
-    client->setInsecure();
+int downloadAudio(t_sound soundToUpdate) {
     HTTPClient https;
-    String path_brute;
     String URL = "https://connect.midi-agency.com/module/track/path?id=";
-    URL += soundToUpdade.id;
-    Serial.print("URL: ");
-    Serial.println(URL);
-    if (https.begin(*client, URL)) {
-        // HTTP header has been send and Server response header has been handled
-        int httpCode = https.GET();
+    URL += soundToUpdate.id;
+    https.begin(URL);
+    int httpCode = https.GET();
 
-        // file found at server
-        if (httpCode == HTTP_CODE_OK ||
-            httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
-            path_brute = https.getString();
-        } else {
-            Serial.printf("[HTTPS] GET... failed, error: %s\n",
-                          https.errorToString(httpCode).c_str());
-        }
+    String path_brute;
+    printLog(__func__, LOG_INFO, "URL: %s", URL.c_str());
+
+    // file found at server
+    if (httpCode == HTTP_CODE_OK ||
+        httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
+        path_brute = https.getString();
+        printLog(__func__, LOG_INFO, "HTTP Code: %d", httpCode);
+    } else {
+        printLog(__func__, LOG_ERROR, "[HTTPS] GET... failed, error: %s\n",
+                 https.errorToString(httpCode).c_str());
     }
     https.end();
 
     path_brute = path_brute.substring(1, path_brute.indexOf("\"", 5));
     path_brute.replace("\\", "");
-    Serial.println(path_brute);
 
-    // String URL = F("https://connect.midi-agency.com/");
-    // URL += soundToUpdade.path;
-    // Serial.println(soundToUpdade.path);
-    Serial.print(F("[HTTPS] begin...\n"));
-    if (https.begin(*client,
-                    F("https://connect.midi-agency.com/") + path_brute)) {
-        Serial.println(F("[HTTPS] GET...\n"));
+    if (https.begin("https://connect.midi-agency.com/" + path_brute)) {
         // start connection and send HTTP header
         int httpCode = https.GET();
-        Serial.print(F("HTTP Code: "));
-        Serial.println(httpCode);
+        printLog(__func__, LOG_INFO, "HTTP Code: %d", httpCode);
         // httpCode will be negative on error
         if (httpCode > 0) {
-            String audioName = soundToUpdade.title;
-            // if (audioName.indexOf("\\") >= 0)
-            //   audioName = audioName.substring(0,audioName.indexOf("\\")) +
-            //   audioName.substring(audioName.indexOf("\\")+1);
-            // soundToUpdade.title = audioName;
-            Serial.print(F("audioName: "));
-            Serial.println(audioName);
+            String audioName = '/' + soundToUpdate.title;
+            printLog(__func__, LOG_INFO, "audioName: %s", audioName.c_str());
             File f = SD.open(audioName, FILE_WRITE);
             // read all data from server
             if (f) {
                 int len = https.getSize();
-                uint8_t buff[128] = {0};
-                int nbBytes = 0;
+                // get tcp stream
+                WiFiClient * stream = https.getStreamPtr();
+                int nbBytesPacket = 0;
                 bool blink = false;
+                uint8_t timeout_count = 0;
+                uint8_t buff[128] = {0};
+                // client->setTimeout(100);
                 while (https.connected() && (len > 0 || len == -1)) {
-                    // read up to 128 byte
-                    int c = client->readBytes(
-                        buff, std::min((size_t)len, sizeof(buff)));
-                    f.write(buff, c);
-                    if (++nbBytes % 100 == 0)
-                        Serial.printf("NE PAS DEBRANCHER\n\tnbBytes: %d\n",
-                                      nbBytes);
+                    size_t size = stream->available();
 
-                    if (nbBytes % 10 == 0) {
-                        digitalWrite(LED_BUILTIN, blink);
-                        blink = !blink;
-                    }
-                    if (!c) {
-                        Serial.println(F("read timeout"));
-                    }
+                    if (size) {  
+                        // read up to 256 bytes
+                        int c = stream->readBytes(
+                            buff, std::min((size_t)len, sizeof(buff)));
 
-                    if (len > 0) {
-                        len -= c;
+                        f.write(buff, c);
+                        if (++nbBytesPacket % 100 == 0) {
+                            printLog(__func__, LOG_INFO, "NE PAS DEBRANCHER\n\tnbBytesPacket: %d\n",
+                                        nbBytesPacket);
+                        }
+
+                        if (nbBytesPacket % 10 == 0) {
+                            // digitalWrite(LED_BUILTIN, blink);
+                            blink = !blink;
+                        }
+
+                        timeout_count = 0;
+                        if (len > 0) {
+                            len -= c;
+                        }
+                    } else {
+                        timeout_count++;
+                        if (timeout_count > 500) {
+                            printLog(__func__, LOG_ERROR, "Read timeout too many times");
+                            f.close();
+                            https.end();
+                            return 0;
+                        }
                     }
+                    delay(1);
                 }
-                Serial.println("done");
+                printLog(__func__, LOG_SUCCESS, "Audio downloaded");
                 f.close();
             } else
                 return -1;

@@ -1,13 +1,10 @@
 #pragma once
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
-#include <ESP8266WebServer.h>
 #include <EEPROM.h>
 
 #define NB_SON 25
-enum LOG_LEVEL { LOG_INFO, LOG_WARNING, LOG_ERROR };
+enum LOG_LEVEL { LOG_INFO, LOG_SUCCESS, LOG_WARNING, LOG_ERROR };
 enum PLAYER_STATE { PLAYING, PAUSED, STOPPED, WAITING };
 enum CAPTEUR_TYPE: uint8_t {
     PIR = 1,
