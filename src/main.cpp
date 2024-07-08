@@ -33,6 +33,7 @@
 #define INPUT_PIN_1 17
 #define OUTPUT_PIN_1 16
 #define OUTPUT_PIN_2 15
+#define MUTE 4
 
 /**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
 constexpr uint8_t capteurType = CAPTEUR_TYPE::PIR;
@@ -238,6 +239,8 @@ void setup() {
     pinMode(INPUT_PIN_1, INPUT);
     pinMode(OUTPUT_PIN_1, OUTPUT);
     pinMode(OUTPUT_PIN_2, OUTPUT);
+    pinMode(MUTE, OUTPUT);
+    digitalWrite(MUTE, HIGH);
     Serial.begin(115200);  // Initialising if(DEBUG)Serial Monitor
     delay(10);
     // pinMode(LED_BUILTIN, OUTPUT);
