@@ -250,6 +250,7 @@ void setup() {
     Serial.begin(115200);  // Initialising if(DEBUG)Serial Monitor
     delay(10);
     is_plugged = digitalRead(INPUT_PIN_PLUGGED);
+    was_plugged = is_plugged;
     // pinMode(LED_BUILTIN, OUTPUT);
     printLog(__func__, LOG_INFO, "Starting " VERSION_CODE);
 
