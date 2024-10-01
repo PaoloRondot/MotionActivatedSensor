@@ -33,6 +33,7 @@
 #define INPUT_PIN_1 17
 #define OUTPUT_PIN_1 16
 #define OUTPUT_PIN_2 15
+#define INPUT_PIN_PLUGGED 25
 #define MUTE 4
 
 /**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
@@ -41,6 +42,7 @@ constexpr uint8_t scenario = PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE;
 
 /************************* CAN WE GO OFFLINE? *******************************/
 constexpr bool is_offline = false;
+constexpr bool use_battery = true;
 
 /************************** USE INTERNAL DAC? ********************************/
 constexpr bool internal_dac = false;
@@ -145,7 +147,7 @@ PLAYER_STATE player_state = STOPPED;
 unsigned char currentIndex = 0;
 unsigned int nbFetch = 0;
 
-String idModule = "7f68d438acbc1beb2ccb494a9ffa2a6a";
+String idModule = "634f8000509b75079fa1771a7ca5ac31";
 // String idModule = "f382d879def3db97acfdefeb9bc87163";
 
 AudioGeneratorMP3 *decoder = NULL;
@@ -167,6 +169,9 @@ bool infraredActivation = true;
 unsigned char delaySecSet = 0;
 unsigned char delayBefSecSet = 0;
 unsigned char delayMinSet = 0;
+
+bool was_plugged = false;
+bool is_plugged = false;
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -237,44 +242,52 @@ void printLog(const char* function, LOG_LEVEL level, const char* message, ...) {
 
 void setup() {
     pinMode(INPUT_PIN_1, INPUT);
+    pinMode(INPUT_PIN_PLUGGED, INPUT);
     pinMode(OUTPUT_PIN_1, OUTPUT);
     pinMode(OUTPUT_PIN_2, OUTPUT);
     pinMode(MUTE, OUTPUT);
     digitalWrite(MUTE, HIGH);
     Serial.begin(115200);  // Initialising if(DEBUG)Serial Monitor
     delay(10);
+    is_plugged = digitalRead(INPUT_PIN_PLUGGED);
     // pinMode(LED_BUILTIN, OUTPUT);
     printLog(__func__, LOG_INFO, "Starting " VERSION_CODE);
-
-    //---------------------------------------- Read eeprom for ssid and pass
-    WiFi.mode(WIFI_STA);  // explicitly set mode, esp defaults to STA+AP
-    // it is a good practice to make sure your code sets wifi mode how you want
-    // it.
 
     // put your setup code here, to run once:
     Serial.begin(115200);
 
-    // WiFiManager, Local intialization. Once its business is done, there is no
-    // need to keep it around
-    WiFiManager wm;
+    // Only activate wifi if plugged
+    if (((use_battery && is_plugged) || !use_battery) && !is_offline) {
+        //---------------------------------------- Read eeprom for ssid and pass
+        WiFi.mode(WIFI_STA);  // explicitly set mode, esp defaults to STA+AP
+        // it is a good practice to make sure your code sets wifi mode how you want
+        // it.
 
-    // Automatically connect using saved credentials,
-    // if connection fails, it starts an access point with the specified name (
-    // "AutoConnectAP"), if empty will auto generate SSID, if password is blank
-    // it will be anonymous AP (wm.autoConnect()) then goes into a blocking loop
-    // awaiting configuration and will return success result
+        // WiFiManager, Local intialization. Once its business is done, there is no
+        // need to keep it around
+        WiFiManager wm;
 
-    bool res;
+        // Automatically connect using saved credentials,
+        // if connection fails, it starts an access point with the specified name (
+        // "AutoConnectAP"), if empty will auto generate SSID, if password is blank
+        // it will be anonymous AP (wm.autoConnect()) then goes into a blocking loop
+        // awaiting configuration and will return success result
 
-    res = wm.autoConnect("AutoConnectAP", "");  // password protected ap
+        bool res;
 
-    if (!res) {
-        printLog(__func__, LOG_ERROR, "Failed to connect");
-        // ESP.restart();
+        res = wm.autoConnect("AutoConnectAP", "");  // password protected ap
+
+        if (!res) {
+            printLog(__func__, LOG_ERROR, "Failed to connect");
+            // ESP.restart();
+        } else {
+            // if you get here you have connected to the WiFi
+            printLog(__func__, LOG_SUCCESS, "Connected");
+        }
     } else {
-        // if you get here you have connected to the WiFi
-        printLog(__func__, LOG_SUCCESS, "Connected");
+        WiFi.mode(WIFI_OFF);
     }
+
 
     audioLogger = &Serial;
 
@@ -319,7 +332,7 @@ void setup() {
     }
 
     fetchAudiosLocal();
-    if (!is_offline) {
+    if (WiFi.getMode() != WIFI_OFF) {
         checkUpdateSounds();
     }
 
@@ -344,6 +357,7 @@ void loop() {
         minutes = minutes + 1;
         fetch = true; // Every min we ask to fetch
         checkRestart();
+        printLog(__func__, LOG_INFO, "is_plugged: %d", digitalRead(INPUT_PIN_PLUGGED));
     }
 
     // the number of seconds that have passed since the last time 60 seconds was
@@ -353,9 +367,14 @@ void loop() {
         minutes_since_act++;
     }
 
-    if ((minutes % DELAY_FETCH == 0 && fetch) || (gogogofetch)) {
+    if ( ((minutes % DELAY_FETCH == 0 && fetch) || (gogogofetch)) ) {
+        is_plugged = digitalRead(INPUT_PIN_PLUGGED);
+        if (is_plugged != was_plugged) {
+            ESP.restart();
+        }
+        was_plugged = is_plugged;
         if (!decoder->isRunning()) {
-            if (!is_offline) {
+            if (WiFi.getMode() != WIFI_OFF) {
                 checkUpdateSounds();
             }
             fetch = false;
