@@ -46,11 +46,11 @@ bool Ultrason::isTriggered(uint32_t& minutes_since_act,
             // Reads the echoPin, returns the sound wave travel time in
             // microseconds
             uint32_t duration = pulseIn(pin_, HIGH);
-            printLog(__func__, LOG_LEVEL::LOG_INFO, "duration: %d", duration);
+            // printLog(__func__, LOG_LEVEL::LOG_INFO, "duration: %d", duration);
             // Calculate the distance
             float distance_cm = duration * SOUND_SPEED / 2;
-            printLog(__func__, LOG_LEVEL::LOG_INFO, "distance_cm: %f",
-                     distance_cm);
+            // printLog(__func__, LOG_LEVEL::LOG_INFO, "distance_cm: %f",
+            //          distance_cm);
             if (distance_cm <= min_distance_)
                 return true;
             else {
