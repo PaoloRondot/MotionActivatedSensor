@@ -20,7 +20,7 @@
 #define VERSION_CODE "2.1.2.2"
 
 #define DELAY_FETCH 2
-#define TIME_HOURS_RESTART 8
+#define TIME_HOURS_RESTART 4
 #define TIME_MINS_RESTART 0
 
 #define CS_PIN 5
@@ -180,7 +180,7 @@ bool is_plugged = false;
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org");
+NTPClient timeClient(ntpUDP, "pool.ntp.org", 7200);
 
 // Establishing Local server at port 80 whenever required
 WebServer server(80);
@@ -241,41 +241,36 @@ void setup() {
         return;
     }
 
-    // Only activate wifi if plugged
-    if (((use_battery && is_plugged) || !use_battery) && !is_offline) {
-        //---------------------------------------- Read eeprom for ssid and pass
-        WiFi.mode(WIFI_STA);  // explicitly set mode, esp defaults to STA+AP
-        // it is a good practice to make sure your code sets wifi mode how you want
-        // it.
+    // Only activate wifi at boot
+    //---------------------------------------- Read eeprom for ssid and pass
+    WiFi.mode(WIFI_STA);  // explicitly set mode, esp defaults to STA+AP
+    // it is a good practice to make sure your code sets wifi mode how you want
+    // it.
 
-        // WiFiManager, Local intialization. Once its business is done, there is no
-        // need to keep it around
-        WiFiManager wm;
+    // WiFiManager, Local intialization. Once its business is done, there is no
+    // need to keep it around
+    WiFiManager wm;
 
-        // Automatically connect using saved credentials,
-        // if connection fails, it starts an access point with the specified name (
-        // "AutoConnectAP"), if empty will auto generate SSID, if password is blank
-        // it will be anonymous AP (wm.autoConnect()) then goes into a blocking loop
-        // awaiting configuration and will return success result
+    // Automatically connect using saved credentials,
+    // if connection fails, it starts an access point with the specified name (
+    // "AutoConnectAP"), if empty will auto generate SSID, if password is blank
+    // it will be anonymous AP (wm.autoConnect()) then goes into a blocking loop
+    // awaiting configuration and will return success result
 
-        bool res;
+    bool res;
 
-        res = wm.autoConnect("AutoConnectAP", "");  // password protected ap
+    res = wm.autoConnect("AutoConnectAP", "");  // password protected ap
 
-        if (!res) {
-            Serial.println("Failed to connect");
-            // ESP.restart();
-        } else {
-            // if you get here you have connected to the WiFi
-        }
-        timeClient.begin();
-        timeClient.setTimeOffset(7200);
-        timeClient.update();
-        logger = new Logger(WiFi.getMode(), &timeClient);
-        logger->printLog(__func__, LOG_LEVEL::LOG_SUCCESS, true, "Connected to WiFi");
+    if (!res) {
+        Serial.println("Failed to connect");
+        // ESP.restart();
     } else {
-        WiFi.mode(WIFI_OFF);
+        // if you get here you have connected to the WiFi
     }
+    timeClient.begin();
+    timeClient.update();
+    logger = new Logger(WiFi.getMode(), &timeClient);
+    logger->printLog(__func__, LOG_LEVEL::LOG_SUCCESS, true, "Connected to WiFi");
 
     source = new AudioFileSourceSD();
     output = new AudioOutputI2S(0,internal_dac);
@@ -319,6 +314,7 @@ void setup() {
     if (WiFi.getMode() != WIFI_OFF) {
         checkUpdateSounds();
     }
+    WiFi.mode(WIFI_OFF);
 }
 
 void loop() {
@@ -332,14 +328,12 @@ void loop() {
 
     // Every minute, we add a minute to the clock.
     if (seconds >= 60) {
-        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "ESP.getFreeHeap(): %d", ESP.getFreeHeap());
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, player_state != PLAYER_STATE::PLAYING, "ESP.getFreeHeap(): %d", ESP.getFreeHeap());
         logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "Nb fetch: %d", nbFetch);
         current_min_in_seconds = seconds_since_boot;
         minutes = minutes + 1;
         fetch = true; // Every min we ask to fetch
-        if (WiFi.getMode() != WIFI_OFF) {
-            checkRestart();
-        }
+        checkRestart();
         logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "is_plugged: %d", digitalRead(INPUT_PIN_PLUGGED));
     }
 
@@ -472,7 +466,9 @@ void checkUpdateSounds() {
 }
 
 void checkRestart() {
-    timeClient.update();
+    if (WiFi.getMode() != WIFI_OFF) {
+        timeClient.update();
+    }
     int currentHour = timeClient.getHours();
 
     int currentMinute = timeClient.getMinutes();

@@ -1,13 +1,16 @@
 #include "logger.hpp"
 
+
 Logger::Logger(wifi_mode_t wifiMode, NTPClient *timeClient)
     : wifiMode(wifiMode), timeClient(timeClient) {
     currentLogFile = "";
 }
 
 String Logger::getCurrentDate() {
-    if (!timeClient->update()) {
-        timeClient->forceUpdate();  // Force an update from the NTP server
+    if (wifiMode != WIFI_OFF) {
+        if (!timeClient->update()) {
+            timeClient->forceUpdate();  // Force an update from the NTP server
+        }
     }
 
     unsigned long epochTime = timeClient->getEpochTime();
