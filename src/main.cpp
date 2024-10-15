@@ -15,6 +15,7 @@
 #include "infrarouge.hpp"
 #include "pir.hpp"
 #include "ultrason.hpp"
+#include "logger.hpp"
 
 #define VERSION_CODE "2.1.2.2"
 
@@ -35,6 +36,10 @@
 #define OUTPUT_PIN_2 15
 #define INPUT_PIN_PLUGGED 25
 #define MUTE 4
+
+#define LOG_DIRECTORY "/.logs/"
+#define MAX_LOG_SIZE 1048576  // 1MB in bytes
+#define MAX_LOG_FOLDER_SIZE 10485760  // 10MB in bytes
 
 /**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
 constexpr uint8_t capteurType = CAPTEUR_TYPE::PIR;
@@ -212,33 +217,7 @@ uint8_t max_sound = 0;
 
 Capteur *capteur;
 
-void printLog(const char* function, LOG_LEVEL level, const char* message, ...) {
-    switch(level) {
-        case LOG_SUCCESS:
-            Serial.print("\x1b[32m" "[SUCCESS] ");
-            break;
-        case LOG_WARNING:
-            Serial.print("\x1b[33m" "[WARNING] ");
-            break;
-        case LOG_ERROR:
-            Serial.print("\x1b[31m" "[ERROR] ");
-            break;
-        default:
-            Serial.print("[INFO] ");
-            break;
-    }
-
-    Serial.print(function);
-    Serial.print(" : ");
-
-    va_list args;
-    va_start(args, message);
-    char buffer[256];
-    vsnprintf(buffer, 256, message, args);
-    va_end(args);
-    Serial.print(buffer);
-    Serial.println("\x1b[0m");
-}
+Logger *logger;
 
 void setup() {
     pinMode(INPUT_PIN_1, INPUT);
@@ -252,10 +231,15 @@ void setup() {
     is_plugged = digitalRead(INPUT_PIN_PLUGGED);
     was_plugged = is_plugged;
     // pinMode(LED_BUILTIN, OUTPUT);
-    printLog(__func__, LOG_INFO, "Starting " VERSION_CODE);
+    Serial.println("Starting " VERSION_CODE);
 
     // put your setup code here, to run once:
     Serial.begin(115200);
+
+    if (!SD.begin()) {
+        Serial.println("Card Mount Failed");
+        return;
+    }
 
     // Only activate wifi if plugged
     if (((use_battery && is_plugged) || !use_battery) && !is_offline) {
@@ -279,33 +263,30 @@ void setup() {
         res = wm.autoConnect("AutoConnectAP", "");  // password protected ap
 
         if (!res) {
-            printLog(__func__, LOG_ERROR, "Failed to connect");
+            Serial.println("Failed to connect");
             // ESP.restart();
         } else {
             // if you get here you have connected to the WiFi
-            printLog(__func__, LOG_SUCCESS, "Connected");
         }
+        timeClient.begin();
+        timeClient.setTimeOffset(7200);
+        timeClient.update();
+        logger = new Logger(WiFi.getMode(), &timeClient);
+        logger->printLog(__func__, LOG_LEVEL::LOG_SUCCESS, true, "Connected to WiFi");
     } else {
         WiFi.mode(WIFI_OFF);
     }
-
-
-    audioLogger = &Serial;
 
     source = new AudioFileSourceSD();
     output = new AudioOutputI2S(0,internal_dac);
     decoder = new AudioGeneratorMP3();
 
     if (!output->SetPinout(I2S_BCLK, I2S_WCLK, I2S_DIN)) {
-        printLog(__func__, LOG_ERROR, "Error setting I2S pinout");
+        logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "Error setting I2S pinout");
         return;
     }
 
-    if (!SD.begin()) {
-        printLog(__func__, LOG_ERROR, "Probleme carte SD");
-        return;
-    }
-    printLog(__func__, LOG_SUCCESS, "SD initialisee.");
+    logger->printLog(__func__, LOG_LEVEL::LOG_SUCCESS, true, "SD initialisee.");
 
     for (unsigned char i = 0; i < NB_SON; ++i) {
         allSoundsOnline[i].title.reserve(25);
@@ -328,17 +309,16 @@ void setup() {
       capteur = new Ultrason(delayMinSet, delaySecSet, INPUT_PIN_1, scenario, OUTPUT_PIN_2, min_distance_cm, time_within_minimum_sec, time_within_minimum_sec_2);
     }
     else {
-        printLog(__func__, LOG_ERROR, "Capteur non reconnu");
+        logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "Capteur non reconnu");
         ESP.restart();
     }
-
+    if (digitalRead(INPUT_PIN_PLUGGED)) {
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "Plugged", true);
+    }
     fetchAudiosLocal();
     if (WiFi.getMode() != WIFI_OFF) {
         checkUpdateSounds();
     }
-
-    timeClient.begin();
-    timeClient.setTimeOffset(7200);
 }
 
 void loop() {
@@ -352,13 +332,15 @@ void loop() {
 
     // Every minute, we add a minute to the clock.
     if (seconds >= 60) {
-        printLog(__func__, LOG_INFO, "ESP.getFreeHeap(): %d", ESP.getFreeHeap());
-        printLog(__func__, LOG_INFO, "Nb fetch: %d", nbFetch);
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "ESP.getFreeHeap(): %d", ESP.getFreeHeap());
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "Nb fetch: %d", nbFetch);
         current_min_in_seconds = seconds_since_boot;
         minutes = minutes + 1;
         fetch = true; // Every min we ask to fetch
-        checkRestart();
-        printLog(__func__, LOG_INFO, "is_plugged: %d", digitalRead(INPUT_PIN_PLUGGED));
+        if (WiFi.getMode() != WIFI_OFF) {
+            checkRestart();
+        }
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "is_plugged: %d", digitalRead(INPUT_PIN_PLUGGED));
     }
 
     // the number of seconds that have passed since the last time 60 seconds was
@@ -402,13 +384,13 @@ void loop() {
                              seconds_since_boot, player_state)) {
         infraredActivation = false;
         if (player_state != PLAYER_STATE::PLAYING && player_state != PLAYER_STATE::PAUSED) {
-            printLog(__func__, LOG_INFO, "Started song after delay");
+            logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "Started song after delay");
             delay(delayBefSecSet * 1000);
             capteur->pickMusic();
             String pathString = '/' + allSoundsStored[capteur->getCurrentIndex()].path;
             char path[64];
             pathString.toCharArray(path, 64);
-            printLog(__func__, LOG_INFO, "Titre: %s",
+            logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "Titre: %s",
                         allSoundsStored[capteur->getCurrentIndex()].title.c_str());
             setUpTrack(path);
         }
@@ -416,7 +398,7 @@ void loop() {
         delay(10);
     } else if (waiting_track && ((minutes_since_act * 60 + seconds_since_act >= delay_before_trigger_waiting_seconds) || player_state == PLAYER_STATE::WAITING)) {
         if (player_state != PLAYER_STATE::WAITING) {
-            printLog(__func__, LOG_INFO, "Waiting...");
+            logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "Started waiting track");
             setUpTrack("/waiting.mp3");
             player_state = PLAYER_STATE::WAITING;
         }
@@ -430,11 +412,11 @@ void handleWaitingTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
     if (decoder->isRunning()) {
         if (millis() - lastms > 1000) {
             lastms = millis();
-            printLog(__func__, LOG_INFO, "Running for %d s...", lastms);
+            logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "Running for %d s...", lastms);
         }
         if (!decoder->loop()) decoder->stop();
     } else {
-        printLog(__func__, LOG_SUCCESS, "MP3 done");
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "MP3 done");
         delay(1000);
         player_state = PLAYER_STATE::STOPPED;
     }
@@ -447,13 +429,13 @@ void handleTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
         player_state = PLAYER_STATE::PLAYING;
         if (millis() - lastms > 1000) {
             lastms = millis();
-            printLog(__func__, LOG_INFO, "Running for %d ms...", lastms);
+            logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "Running for %d s...", lastms);
         }
         if (!decoder->loop()) {
             decoder->stop();
         }
     } else {
-        printLog(__func__, LOG_SUCCESS, "MP3 done");
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "MP3 done");
         delay(1000);
         player_state = PLAYER_STATE::STOPPED;
         seconds_since_act = 0;
@@ -462,13 +444,13 @@ void handleTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
 }
 
 void setUpTrack(const char *path) {
-    printLog(__func__, LOG_INFO, "Setting up track");
+    logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "Setting up track");
     if (decoder->isRunning()) {
-        printLog(__func__, LOG_INFO, "Stopping decoder");
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "Stopping decoder");
         decoder->stop();
     }
     source->close();
-    if (!source->open(path)) printLog(__func__, LOG_ERROR, "source open failed");
+    if (!source->open(path)) logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "Source open failed");
     decoder->begin(source, output);
 }
 
@@ -481,13 +463,12 @@ void checkUpdateSounds() {
 
     for (uint8_t i = 0; i < max_sound; ++i) {
         Serial.println("----------------------------------------");
-        printLog(__func__, LOG_INFO, "allSoundsOnline[%d].title: %s", i,
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "allSoundsOnline[%d].title: %s", i,
                  allSoundsOnline[i].title.c_str());
         Serial.println("---------");
-        printLog(__func__, LOG_INFO, "allSoundsStored[%d].id: %d", i,
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "allSoundsStored[%d].title: %d", i, 
                  allSoundsStored[i].title.c_str());
     }
-    printLog(__func__, LOG_INFO, "ESP.getFreeHeap(): %d", ESP.getFreeHeap());
 }
 
 void checkRestart() {
@@ -496,31 +477,33 @@ void checkRestart() {
 
     int currentMinute = timeClient.getMinutes();
 
-    printLog(__func__, LOG_INFO, "Time: %d:%d", currentHour, currentMinute);
+    logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "Time: %d:%d", currentHour, currentMinute);
     if ((currentHour == TIME_HOURS_RESTART) &&
         (currentMinute == TIME_MINS_RESTART))
         ESP.restart();
 }
 
 bool fetchAudiosOnline() {
-    printLog(__func__, LOG_INFO, "Fetching online sounds");
+    logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "Fetching online sounds");
     String payload;
     HTTPClient https;
-    printLog(__func__, LOG_INFO, "[HTTPS] begin...\n");
+    logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "[HTTPS] begin...\n");
     if (https.begin(
             "https://connect.midi-agency.com/module/tracks?id_module=" +
                 idModule)) {
         // HTTP header has been send and Server response header has been handled
         int httpCode = https.GET();
-        printLog(__func__, LOG_INFO, "[HTTPS] GET... code: " + httpCode);
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "[HTTPS] GET... code: %d\n", httpCode);
 
         // file found at server
         if (httpCode == HTTP_CODE_OK ||
             httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
             payload = https.getString();
             Serial.println(payload);
+            logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "[HTTPS] GET... payload: %s\n",
+                     payload.c_str());
         } else {
-            printLog(__func__, LOG_ERROR, "[HTTPS] GET... failed, error: %s\n",
+            logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "[HTTPS] GET... failed, error: %s\n",
                      https.errorToString(httpCode).c_str());
             return false;
         }
@@ -574,8 +557,9 @@ bool fetchAudiosOnline() {
                 break;
         }
         Serial.println("done fetching");
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "done fetching");
     } else {
-        Serial.println("is_error = true");
+        logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "is_error = true");
         return false;
     }
     return true;
@@ -594,7 +578,8 @@ void fetchAudiosLocal() {
         if (strcmp(entry.name(), "System Volume Information") == 0) continue;
         if (entry.name()[0] == '.') continue;
         if (strcmp(entry.name(), "waiting.mp3") == 0) continue;
-        printLog(__func__, LOG_INFO, "%s \t %d", entry.name(), entry.size());
+        if (strcmp(entry.name(), "logs") == 0) continue;
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "%s \t %d", entry.name(), entry.size());
 
         allSoundsStored[index].path = entry.name();
         allSoundsStored[index].size = entry.size();
@@ -623,7 +608,7 @@ void deleteTooMuch() {
             }
         }
         if (toRemove) {
-            printLog(__func__, LOG_WARNING, "to remove: %s",
+            logger->printLog(__func__, LOG_LEVEL::LOG_WARNING, false, "to remove: %s",
                      allSoundsStored[stored].title.c_str());
             removeAudio('/' + allSoundsStored[stored].path);
         }
@@ -673,13 +658,14 @@ void updateAudios() {
                         "/" + allSoundsOnline[online].title;
                     newAllSoundStored[index++].title =
                         allSoundsOnline[online].title;
-                    printLog(__func__, LOG_SUCCESS, "Audio properly installed");
+                    logger->printLog(__func__, LOG_LEVEL::LOG_SUCCESS, true, "Audio %s properly installed", allSoundsOnline[online].title);
                 } else {
-                    printLog(__func__, LOG_ERROR,
-                             "Audio was deleted because not complete");
+                    logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "Audio %s was deleted because not complete",
+                             allSoundsOnline[online].title);
                 }
             } else
-                printLog(__func__, LOG_ERROR, "Audio could not be downloaded");
+                logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "Audio %s could not be downloaded",
+                         allSoundsOnline[online].title);
         } else {
             checkSoundIntegrity(allSoundsOnline[online],
                                          "/" + allSoundsOnline[online].title);
@@ -721,11 +707,10 @@ int checkSoundIntegrity(t_sound toCheck, String path) {
         return 0;
     else {
         if (SD.remove(path)) {
-            printLog(__func__, LOG_WARNING, "Son incomplet supprimé avec succès");
+            logger->printLog(__func__, LOG_LEVEL::LOG_WARNING, true, "Son incomplet supprimé avec succès");
             return -1;
         } else {
-            printLog(__func__, LOG_ERROR,
-                     "Erreur lors de la suppression du son incomplet");
+            logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "Erreur lors de la suppression du son incomplet");
             return -2;
         }
     }
@@ -737,11 +722,11 @@ int removeAudio(String filename) {
         if (SD.remove(filename)) {
             Serial.println("Son supprimé avec succès");
         } else {
-            printLog(__func__, LOG_ERROR, "Erreur lors de la suppression du son");
+            logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "Erreur lors de la suppression du son");
             return -1;
         }
     } else {
-        printLog(__func__, LOG_WARNING, "Son non présent");
+        logger->printLog(__func__, LOG_LEVEL::LOG_WARNING, true, "Son absent");
         return -1;
     }
     dataFile.close();
@@ -756,15 +741,15 @@ int downloadAudio(t_sound soundToUpdate) {
     int httpCode = https.GET();
 
     String path_brute;
-    printLog(__func__, LOG_INFO, "URL: %s", URL.c_str());
+    logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "URL: %s", URL.c_str());
 
     // file found at server
     if (httpCode == HTTP_CODE_OK ||
         httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
         path_brute = https.getString();
-        printLog(__func__, LOG_INFO, "HTTP Code: %d", httpCode);
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "HTTP Code: %d", httpCode);
     } else {
-        printLog(__func__, LOG_ERROR, "[HTTPS] GET... failed, error: %s\n",
+        logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "[HTTPS] GET... failed, error: %s\n",
                  https.errorToString(httpCode).c_str());
     }
     https.end();
@@ -775,11 +760,11 @@ int downloadAudio(t_sound soundToUpdate) {
     if (https.begin("https://connect.midi-agency.com/" + path_brute)) {
         // start connection and send HTTP header
         int httpCode = https.GET();
-        printLog(__func__, LOG_INFO, "HTTP Code: %d", httpCode);
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "HTTP Code: %d", httpCode);
         // httpCode will be negative on error
         if (httpCode > 0) {
             String audioName = '/' + soundToUpdate.title;
-            printLog(__func__, LOG_INFO, "audioName: %s", audioName.c_str());
+            logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "audioName: %s", audioName.c_str());
             File f = SD.open(audioName, FILE_WRITE);
             // read all data from server
             if (f) {
@@ -801,7 +786,7 @@ int downloadAudio(t_sound soundToUpdate) {
 
                         f.write(buff, c);
                         if (++nbBytesPacket % 100 == 0) {
-                            printLog(__func__, LOG_INFO, "NE PAS DEBRANCHER\n\tnbBytesPacket: %d\n",
+                            logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "NE PAS DEBRANCHER\n\tnbBytesPacket: %d\n",
                                         nbBytesPacket);
                         }
 
@@ -817,7 +802,7 @@ int downloadAudio(t_sound soundToUpdate) {
                     } else {
                         timeout_count++;
                         if (timeout_count > 500) {
-                            printLog(__func__, LOG_ERROR, "Read timeout too many times");
+                            logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "Read timeout too many times");
                             f.close();
                             https.end();
                             return 0;
@@ -825,7 +810,7 @@ int downloadAudio(t_sound soundToUpdate) {
                     }
                     delay(1);
                 }
-                printLog(__func__, LOG_SUCCESS, "Audio downloaded");
+                logger->printLog(__func__, LOG_LEVEL::LOG_SUCCESS, true, "Audio downloaded");
                 f.close();
             } else
                 return -1;

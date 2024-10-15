@@ -2,9 +2,9 @@
 
 #include <Arduino.h>
 #include <EEPROM.h>
+#include "logger.hpp"
 
 #define NB_SON 25
-enum LOG_LEVEL { LOG_INFO, LOG_SUCCESS, LOG_WARNING, LOG_ERROR };
 enum PLAYER_STATE { PLAYING, PAUSED, STOPPED, WAITING };
 enum CAPTEUR_TYPE: uint8_t {
     PIR = 1,

@@ -1,6 +1,7 @@
 #include "capteur.hpp"
 
-extern void printLog(const char* function, LOG_LEVEL level, const char* message, ...);
+// extern void printLog(const char* function, LOG_LEVEL level, const char* message, ...);
+extern Logger *logger;
 
 Capteur::Capteur(const int& delayMin, const int& delaySec, const uint8_t& pin, const int& scenario)
 :delayMin_(delayMin), delaySec_(delaySec), pin_(pin), scenario_(scenario)
@@ -8,7 +9,7 @@ Capteur::Capteur(const int& delayMin, const int& delaySec, const uint8_t& pin, c
 }
 
 void Capteur::setMaxSound(const uint8_t& max_sound) {
-    printLog(__func__, LOG_INFO, "start setMaxSound() max_sound: %d", max_sound);
+    logger->printLog(__func__, LOG_INFO, false, "start setMaxSound() max_sound: %d", max_sound);
     max_sound_ = max_sound;
     if (max_sound_ > 1) {
         randomizeAll_();
@@ -16,7 +17,7 @@ void Capteur::setMaxSound(const uint8_t& max_sound) {
 }
 
 void Capteur::randomizeAll_() { 
-    printLog(__func__, LOG_INFO, "start randomizeAll_()");
+    logger->printLog(__func__, LOG_INFO, false, "start randomizeAll_()");
     for (uint8_t i = 0; i < max_sound_; i++) {  // fill array
         randomized_indexes_[i] = i;
         Serial.printf("%d,", randomized_indexes_[i]);
@@ -29,7 +30,7 @@ void Capteur::randomizeAll_() {
         randomized_indexes_[i] = randomized_indexes_[randomIndex];
         randomized_indexes_[randomIndex] = temp;
     }
-    printLog(__func__, LOG_INFO, "randomized_indexes_ : ");
+    logger->printLog(__func__, LOG_INFO, false, "randomized_indexes_ : ");
     for (uint8_t i = 0; i < max_sound_; i++) {  // print array
         Serial.printf("%d,", randomized_indexes_[i]);
     }
@@ -37,7 +38,7 @@ void Capteur::randomizeAll_() {
 }
 
 void Capteur::pickMusic() {
-    printLog(__func__, LOG_INFO, "_max_sound: %d", max_sound_);
+    logger->printLog(__func__, LOG_INFO, false, "_max_sound: %d", max_sound_);
     if (current_index_ == max_sound_ - 1) {
         current_index_ = 0;
         if (max_sound_ > 1) {
@@ -47,7 +48,7 @@ void Capteur::pickMusic() {
     else if (current_index_ < max_sound_ - 1) {
         current_index_ ++;
     }
-    printLog(__func__, LOG_INFO, "current_index_: %d", current_index_);
+    logger->printLog(__func__, LOG_INFO, false, "current_index_: %d", current_index_);
 }
 
 void Capteur::updateDelay(const int& delayMin, const int& delaySec) {
