@@ -27,6 +27,9 @@
 #define SD_SCK_MHZ(maxMhz) (1000000UL*(maxMhz))
 #define SPI_SPEED SD_SCK_MHZ(4)
 
+#define PLAYING_FREQ 80
+#define IDLE_FREQ 20
+
 #define I2S_DIN 12
 #define I2S_WCLK 27
 #define I2S_BCLK 32
@@ -234,7 +237,6 @@ void setup() {
     Serial.println("Starting " VERSION_CODE);
 
     // put your setup code here, to run once:
-    Serial.begin(115200);
 
     if (!SD.begin()) {
         Serial.println("Card Mount Failed");
@@ -271,7 +273,7 @@ void setup() {
     timeClient.update();
     logger = new Logger(WiFi.getMode(), &timeClient);
     logger->printLog(__func__, LOG_LEVEL::LOG_SUCCESS, true, "Connected to WiFi");
-
+    logger->printLog(__func__, LOG_LEVEL::LOG_SUCCESS, true, "IP: %s", WiFi.localIP().toString().c_str());
     source = new AudioFileSourceSD();
     output = new AudioOutputI2S(0,internal_dac);
     decoder = new AudioGeneratorMP3();
@@ -314,7 +316,9 @@ void setup() {
     if (WiFi.getMode() != WIFI_OFF) {
         checkUpdateSounds();
     }
+    WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
+    setCpuFrequencyMhz(IDLE_FREQ);
 }
 
 void loop() {
@@ -434,6 +438,9 @@ void handleTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
         player_state = PLAYER_STATE::STOPPED;
         seconds_since_act = 0;
         minutes_since_act = 0;
+        delete decoder;
+        decoder = new AudioGeneratorMP3();
+        setCpuFrequencyMhz(IDLE_FREQ);
     }
 }
 
@@ -444,6 +451,7 @@ void setUpTrack(const char *path) {
         decoder->stop();
     }
     source->close();
+    setCpuFrequencyMhz(PLAYING_FREQ);
     if (!source->open(path)) logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "Source open failed");
     decoder->begin(source, output);
 }
