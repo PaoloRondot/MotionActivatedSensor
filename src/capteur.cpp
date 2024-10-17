@@ -1,6 +1,5 @@
 #include "capteur.hpp"
 
-// extern void printLog(const char* function, LOG_LEVEL level, const char* message, ...);
 extern Logger *logger;
 
 Capteur::Capteur(const int& delayMin, const int& delaySec, const uint8_t& pin, const int& scenario)

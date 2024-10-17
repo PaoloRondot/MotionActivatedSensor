@@ -3,9 +3,6 @@
 #define MIN_LOOP 10000
 #define MIN_LOOP_2 100
 
-extern void printLog(const char* function, LOG_LEVEL level, const char* message,
-                     ...);
-
 Pir::Pir(const int& delayMin, const int& delaySec, const uint8_t& pin, const int& scenario)
 :Capteur(delayMin, delaySec, pin, scenario)
 {

@@ -19,7 +19,7 @@
 
 #define VERSION_CODE "2.1.2.2"
 
-#define DELAY_FETCH 2
+#define DELAY_FETCH 30
 #define TIME_HOURS_RESTART 4
 #define TIME_MINS_RESTART 0
 
@@ -45,8 +45,8 @@
 #define MAX_LOG_FOLDER_SIZE 10485760  // 10MB in bytes
 
 /**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
-constexpr uint8_t capteurType = CAPTEUR_TYPE::PIR;
-constexpr uint8_t scenario = PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE;
+constexpr uint8_t capteurType = CAPTEUR_TYPE::ULTRASON;
+constexpr uint8_t scenario = ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN;
 
 /************************* CAN WE GO OFFLINE? *******************************/
 constexpr bool is_offline = false;

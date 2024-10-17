@@ -1,9 +1,7 @@
 #include "ultrason.hpp"
 
 constexpr float SOUND_SPEED = 0.034;
-
-extern void printLog(const char* function, LOG_LEVEL level, const char* message,
-                     ...);
+extern Logger *logger;
 
 Ultrason::Ultrason(const int& delayMin, const int& delaySec,
                    const uint8_t& echo_pin, const int& scenario,
@@ -46,11 +44,8 @@ bool Ultrason::isTriggered(uint32_t& minutes_since_act,
             // Reads the echoPin, returns the sound wave travel time in
             // microseconds
             uint32_t duration = pulseIn(pin_, HIGH);
-            // printLog(__func__, LOG_LEVEL::LOG_INFO, "duration: %d", duration);
             // Calculate the distance
             float distance_cm = duration * SOUND_SPEED / 2;
-            // printLog(__func__, LOG_LEVEL::LOG_INFO, "distance_cm: %f",
-            //          distance_cm);
             if (distance_cm <= min_distance_)
                 return true;
             else {
@@ -99,14 +94,12 @@ bool Ultrason::logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, uint
         return false;
     }
 
-    printLog(__func__, LOG_LEVEL::LOG_INFO, "player_state: %d", player_state);
+    logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "player_state: %d", player_state);
 
     last_try_timestamp_ms = millis();
     if (measureDistance_() <= min_distance_) {
         if (last_player_state == PLAYER_STATE::PLAYING && player_state == PLAYER_STATE::STOPPED) {
-            printLog(__func__, LOG_LEVEL::LOG_INFO, "last_player_state = playing and player_state = stopped");
             if (state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC) {
-                printLog(__func__, LOG_LEVEL::LOG_INFO, "state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC");
                 state_ = ULTRASON_STATE::INSIDE_FOR_X_SEC_AND_AGAIN_FOR_Y_SEC;
             }
             last_player_state = player_state;
@@ -154,7 +147,7 @@ uint16_t Ultrason::measureDistance_() {
     uint32_t duration = pulseIn(pin_, HIGH);
     // Calculate the distance
     float distance_cm = duration * SOUND_SPEED / 2;
-    printLog(__func__, LOG_LEVEL::LOG_INFO, "distance_cm: %f", distance_cm);
+    logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "distance_cm: %f", distance_cm);
     return distance_cm;
 }
 
@@ -165,11 +158,9 @@ void Ultrason::pickMusicSpecial_()
             current_index_ = 0;
             break;
         case ULTRASON_STATE::INSIDE_FOR_X_SEC_AND_AGAIN_FOR_Y_SEC:
-            printLog(__func__, LOG_LEVEL::LOG_INFO, "state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC_AND_AGAIN_FOR_Y_SEC");
             current_index_ = 1;
             break;
         case ULTRASON_STATE::INSIDE_TO_OUTSIDE:
-            printLog(__func__, LOG_LEVEL::LOG_INFO, "state_ == ULTRASON_STATE::INSIDE_TO_OUTSIDE");
             current_index_ = 2;
             break;
         default:
