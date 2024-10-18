@@ -27,8 +27,8 @@
 #define SD_SCK_MHZ(maxMhz) (1000000UL*(maxMhz))
 #define SPI_SPEED SD_SCK_MHZ(4)
 
-#define PLAYING_FREQ 80
-#define IDLE_FREQ 20
+#define PLAYING_FREQ 160
+#define IDLE_FREQ 40
 
 #define I2S_DIN 12
 #define I2S_WCLK 27
