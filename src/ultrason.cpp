@@ -25,6 +25,9 @@ bool Ultrason::isTriggered(uint32_t& minutes_since_act,
     
     static uint32_t last_try_timestamp_ms = 0;
     
+    if ((player_state == PLAYER_STATE::STOPPED) && (minutes_since_act * 60 + seconds_since_act < delayMin_ * 60 + delaySec_))
+        return false;
+
     switch (scenario_) {
         case ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN: {
             if (player_state == PLAYER_STATE::PLAYING) {
