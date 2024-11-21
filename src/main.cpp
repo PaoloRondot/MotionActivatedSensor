@@ -27,7 +27,7 @@
 #define SPI_SPEED SD_SCK_MHZ(4)
 
 #define PLAYING_FREQ 160
-#define IDLE_FREQ 160
+#define IDLE_FREQ 40
 
 #define I2S_DIN 12
 #define I2S_WCLK 27

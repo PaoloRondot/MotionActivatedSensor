@@ -1,7 +1,7 @@
 #include "ultrason.hpp"
 
 constexpr float SOUND_SPEED = 0.034;
-constexpr uint16_t CHECK_INTERVAL = 10;
+constexpr uint16_t CHECK_INTERVAL = 30;
 extern Logger *logger;
 
 Ultrason::Ultrason(const int& delayMin, const int& delaySec,
