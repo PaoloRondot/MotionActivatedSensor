@@ -1,9 +1,10 @@
 #include "logger.hpp"
-
+#include <EEPROM.h>
 
 Logger::Logger(wifi_mode_t wifiMode, NTPClient *timeClient)
     : wifiMode(wifiMode), timeClient(timeClient) {
     currentLogFile = "";
+    createLogFile();
 }
 
 String Logger::getCurrentDate() {
@@ -29,58 +30,6 @@ String Logger::getCurrentDate() {
     return String(dateStr);
 }
 
-// Function to generate a file name based on an incrementing ID if WiFi is off
-int Logger::getNextLogFileID() {
-    int nextID = 0;
-    File dir = SD.open(logDirectory);
-    
-    if (!dir || !dir.isDirectory()) {
-        SD.mkdir(logDirectory);  // Create log directory if it doesn't exist
-        return nextID;
-    }
-
-    // Search for the highest numbered log file
-    while (File file = dir.openNextFile()) {
-        if (!file.isDirectory()) {
-            String fileName = file.name();
-            int startIdx = fileName.lastIndexOf('/') + 1;
-            int endIdx = fileName.indexOf('.', startIdx);
-            
-            if (endIdx > startIdx) {
-                String idStr = fileName.substring(startIdx, endIdx);
-                int id = idStr.toInt();
-                if (id >= nextID) {
-                    nextID = id + 1;  // Increment for the next log file
-                }
-            }
-        }
-        file.close();
-    }
-    dir.close();
-
-    return nextID;
-}
-
-// Function to calculate the total size of the .logs folder
-uint64_t Logger::getLogFolderSize() {
-    uint64_t totalSize = 0;
-    File dir = SD.open(logDirectory);
-    
-    if (!dir || !dir.isDirectory()) {
-        Serial.println("[ERROR] .logs directory not found.");
-        return 0;
-    }
-
-    while (File file = dir.openNextFile()) {
-        if (!file.isDirectory()) {
-            totalSize += file.size();  // Add the size of each file to the total
-        }
-        file.close();
-    }
-    dir.close();
-    return totalSize;
-}
-
 // Delete a log file in the log directory that is not the current log file
 void Logger::deleteOldLogFile() {
     // Open the log directory
@@ -89,35 +38,74 @@ void Logger::deleteOldLogFile() {
         Serial.println("[ERROR] Log directory not found.");
         return;
     }
-
-    bool deleted = false; // Flag to track if a file is deleted
+    char id_str;
+    itoa(currentID, &id_str, 10);
     while (File file = dir.openNextFile()) {
-        if (!file.isDirectory() && String(file.name()) != currentLogFile) {
-            Serial.print("[INFO] Deleting log file: ");
-            Serial.println(file.name());
-            SD.remove(file.name()); // Delete the file
-            deleted = true; // Mark that we deleted a file
-            break; // Exit after deleting one file
+        if (!file.isDirectory()) {
+            if (file.name()[0] == id_str) {
+                Serial.printf("[INFO] Deleting old log file: %s with ID: %d\n", file.path(), currentID);
+                SD.remove(file.path());
+                break;
+            }
         }
         file.close(); // Close the file
     }
+}
 
-    if (!deleted) {
-        Serial.println("[INFO] No old log files found to delete.");
+// Retrieve the last used file ID from EEPROM
+uint8_t Logger::getLastFileID() {
+    EEPROM.begin(1);
+    uint8_t id = EEPROM.read(eepromAddress);
+    Serial.printf("[INFO] Last file ID: %d\n", id);
+    EEPROM.end();
+    return id % maxFiles;
+}
+
+// Save the last used file ID to EEPROM
+void Logger::saveCurrentFileID(uint8_t id) {
+    EEPROM.begin(1);
+    EEPROM.write(eepromAddress, id);
+    EEPROM.commit();
+    EEPROM.end();
+}
+
+// Rename the current log file to remove the `_` marker
+void Logger::renamePreviousLogFile() {
+    // Open the log directory
+    File dir = SD.open(logDirectory); // Assuming logDirectory is defined as "/.logs"
+    if (!dir || !dir.isDirectory()) {
+        Serial.println("[ERROR] Log directory not found.");
+        return;
     }
 
-    dir.close(); // Close the directory
+    while (File file = dir.openNextFile()) {
+        if (!file.isDirectory()) {
+            String path = file.path();
+            String path_save = file.path();
+            if (path.endsWith("_.log")) {
+                path.remove(path.length() - 5, 1); // Remove the `_`
+                Serial.printf("[INFO] Renaming file: %s to %s\n", path_save.c_str(), path.c_str());
+                SD.rename(path_save, path);
+                break;
+            }
+        }
+        file.close(); // Close the file
+    }
 }
 
 void Logger::createLogFile() {
+    previousID = getLastFileID();
+    currentID = (previousID + 1) % maxFiles;
+    saveCurrentFileID(currentID);
+    deleteOldLogFile();
+    renamePreviousLogFile();
     if (wifiMode == WIFI_OFF) {
         // Generate file name based on ID if WiFi is off
-        int logID = getNextLogFileID();
-        currentLogFile = String(logDirectory) + "/" + String(logID) + ".log";
+        currentLogFile = String(logDirectory) + "/" + String(currentID) + ".log";
     } else {
         // Create a new log file based on the date using NTP if WiFi is on
         String dateStr = getCurrentDate();
-        currentLogFile = String(logDirectory) + "/" + dateStr + ".log";
+        currentLogFile = String(logDirectory) + "/" + String(currentID) + "_" + dateStr + "_" + ".log";
     }
     File logFile = SD.open(currentLogFile, FILE_WRITE);
     logFile.close();
@@ -133,22 +121,12 @@ void Logger::checkAndRotateLogFile() {
         if (logFile.size() > maxLogSize) {
             Serial.println("[INFO] Log file exceeded 1MB, rotating log.");
             logFile.close();
-            deleteOldLogFile();  // Delete the oldest log file
-            currentLogFile = "";  // Reset log file so that a new one is created
             createLogFile();
         } else {
             logFile.close();
         }
     } else {
         Serial.println("[ERROR] Could not open log file.");
-    }
-
-    // Check if the total log folder size exceeds the 10MB limit
-    uint64_t folderSize = getLogFolderSize();
-    while (folderSize > maxLogFolderSize) {
-        Serial.println("[INFO] Log folder size exceeds 10MB, deleting oldest log file.");
-        deleteOldLogFile();  // Delete the oldest file
-        folderSize = getLogFolderSize();  // Recalculate folder size after deletion
     }
 }
 

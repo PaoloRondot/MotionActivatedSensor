@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <EEPROM.h>
 #include <HTTPClient.h>
 #include <WebServer.h>
 #include <WiFi.h>
@@ -415,7 +414,7 @@ void handleWaitingTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
         if (!decoder->loop()) decoder->stop();
     } else {
         logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "MP3 done");
-        delay(1000);
+        delay(100);
         player_state = PLAYER_STATE::STOPPED;
     }
 }
@@ -504,7 +503,7 @@ bool fetchAudiosOnline() {
             httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
             payload = https.getString();
             Serial.println(payload);
-            logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "[HTTPS] GET... payload: %s\n",
+            logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "[HTTPS] GET... payload: %s\n",
                      payload.c_str());
         } else {
             logger->printLog(__func__, LOG_LEVEL::LOG_ERROR, true, "[HTTPS] GET... failed, error: %s\n",
@@ -583,7 +582,7 @@ void fetchAudiosLocal() {
         if (entry.name()[0] == '.') continue;
         if (strcmp(entry.name(), "waiting.mp3") == 0) continue;
         if (strcmp(entry.name(), "logs") == 0) continue;
-        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "%s \t %d", entry.name(), entry.size());
+        logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "%s \t %d", entry.name(), entry.size());
 
         allSoundsStored[index].path = entry.name();
         allSoundsStored[index].size = entry.size();
@@ -612,7 +611,7 @@ void deleteTooMuch() {
             }
         }
         if (toRemove) {
-            logger->printLog(__func__, LOG_LEVEL::LOG_WARNING, false, "to remove: %s",
+            logger->printLog(__func__, LOG_LEVEL::LOG_WARNING, true, "to remove: %s",
                      allSoundsStored[stored].title.c_str());
             removeAudio('/' + allSoundsStored[stored].path);
         }

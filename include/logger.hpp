@@ -26,11 +26,18 @@ private:
 
     const char* logDirectory = "/logs";
     const uint64_t maxLogSize = 1048576;       // 1MB log file size
-    const uint64_t maxLogFolderSize = 10485760;  // 10MB folder size
+
+    static const int maxFiles = 10;  // Maximum number of log files
+    static const int eepromAddress = 0;  // EEPROM address for storing the last file ID
+    
+    uint8_t previousID = 0;  // Current file ID
+    uint8_t currentID = 0;  // Current file ID
+
+    uint8_t getLastFileID();
+    void saveCurrentFileID(uint8_t id);
+    void renamePreviousLogFile();
 
     String getCurrentDate();
-    int getNextLogFileID();
-    uint64_t getLogFolderSize();
     void createLogFile();
     void deleteOldLogFile();
     void checkAndRotateLogFile();

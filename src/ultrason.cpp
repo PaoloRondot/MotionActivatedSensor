@@ -33,20 +33,8 @@ bool Ultrason::isTriggered(uint32_t& minutes_since_act,
                 return false;
             }
             last_try_timestamp_ms = millis();
-            // Clears the trigPin
-            digitalWrite(trig_pin_, LOW);
-            delayMicroseconds(2);
-            // Sets the trigPin on HIGH state for 10 micro seconds
-            digitalWrite(trig_pin_, HIGH);
-            delayMicroseconds(10);
-            digitalWrite(trig_pin_, LOW);
 
-            // Reads the echoPin, returns the sound wave travel time in
-            // microseconds
-            uint32_t duration = pulseIn(pin_, HIGH);
-            // Calculate the distance
-            float distance_cm = duration * SOUND_SPEED / 2;
-            if (distance_cm <= min_distance_)
+            if (measureDistance_() <= min_distance_)
                 return true;
             else {
                 return false;
@@ -147,7 +135,7 @@ uint16_t Ultrason::measureDistance_() {
     uint32_t duration = pulseIn(pin_, HIGH);
     // Calculate the distance
     float distance_cm = duration * SOUND_SPEED / 2;
-    logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "distance_cm: %f", distance_cm);
+    logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "distance_cm: %f", distance_cm);
     return distance_cm;
 }
 
