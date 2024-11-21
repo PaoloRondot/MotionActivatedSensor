@@ -1,6 +1,7 @@
 #include "ultrason.hpp"
 
 constexpr float SOUND_SPEED = 0.034;
+constexpr uint16_t CHECK_INTERVAL = 10;
 extern Logger *logger;
 
 Ultrason::Ultrason(const int& delayMin, const int& delaySec,
@@ -29,7 +30,7 @@ bool Ultrason::isTriggered(uint32_t& minutes_since_act,
             if (player_state == PLAYER_STATE::PLAYING) {
                 return true;
             }
-            if (millis() - last_try_timestamp_ms < 100) {
+            if (millis() - last_try_timestamp_ms < CHECK_INTERVAL) {
                 return false;
             }
             last_try_timestamp_ms = millis();
@@ -77,7 +78,7 @@ bool Ultrason::logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, uint
     if (player_state == PLAYER_STATE::PLAYING) {
         last_player_state = player_state;
         return true;
-    } else if (millis() - last_try_timestamp_ms < 100) {
+    } else if (millis() - last_try_timestamp_ms < CHECK_INTERVAL) {
         last_player_state = player_state;
         return false;
     }
@@ -135,7 +136,7 @@ uint16_t Ultrason::measureDistance_() {
     uint32_t duration = pulseIn(pin_, HIGH);
     // Calculate the distance
     float distance_cm = duration * SOUND_SPEED / 2;
-    logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "distance_cm: %f", distance_cm);
+    // logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "distance_cm: %f", distance_cm);
     return distance_cm;
 }
 
