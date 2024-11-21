@@ -27,7 +27,7 @@
 #define SPI_SPEED SD_SCK_MHZ(4)
 
 #define PLAYING_FREQ 160
-#define IDLE_FREQ 40
+#define IDLE_FREQ 160
 
 #define I2S_DIN 12
 #define I2S_WCLK 27
@@ -392,7 +392,6 @@ void loop() {
             setUpTrack(path);
         }
         handleTrack(player_state, seconds_since_act, minutes_since_act);
-        delay(10);
     } else if (waiting_track && ((minutes_since_act * 60 + seconds_since_act >= delay_before_trigger_waiting_seconds) || player_state == PLAYER_STATE::WAITING)) {
         if (player_state != PLAYER_STATE::WAITING) {
             logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "Started waiting track");
@@ -433,7 +432,7 @@ void handleTrack(PLAYER_STATE &player_state, uint8_t &seconds_since_act,
         }
     } else {
         logger->printLog(__func__, LOG_LEVEL::LOG_INFO, true, "MP3 done");
-        delay(1000);
+        delay(100);
         player_state = PLAYER_STATE::STOPPED;
         seconds_since_act = 0;
         minutes_since_act = 0;
