@@ -42,8 +42,8 @@
 #define MAX_LOG_FOLDER_SIZE 10485760  // 10MB in bytes
 
 /**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
-constexpr uint8_t capteurType = CAPTEUR_TYPE::ULTRASON;
-constexpr uint8_t scenario = ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN;
+constexpr uint8_t capteurType = CAPTEUR_TYPE::PIR;
+constexpr uint8_t scenario = PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE;
 
 /************************* CAN WE GO OFFLINE? *******************************/
 // constexpr bool is_offline = false;
@@ -71,7 +71,7 @@ PLAYER_STATE player_state = STOPPED;
 unsigned char currentIndex = 0;
 unsigned int nbFetch = 0;
 
-String idModule = "634f8000509b75079fa1771a7ca5ac31";
+String idModule = "10edafc7809ee713636e2c295e79c8d4";
 // String idModule = "f382d879def3db97acfdefeb9bc87163";
 
 AudioGeneratorMP3 *decoder = NULL;
@@ -150,7 +150,6 @@ void setup() {
     is_plugged = digitalRead(INPUT_PIN_PLUGGED);
     was_plugged = is_plugged;
     // pinMode(LED_BUILTIN, OUTPUT);
-    Serial.println("Starting " VERSION_CODE);
 
     // put your setup code here, to run once:
 
