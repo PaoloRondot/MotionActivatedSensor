@@ -16,8 +16,6 @@
 #include "ultrason.hpp"
 #include "logger.hpp"
 
-#define VERSION_CODE "2.1.2.2"
-
 #define DELAY_FETCH 30
 #define TIME_HOURS_RESTART 4
 #define TIME_MINS_RESTART 0
@@ -48,8 +46,8 @@ constexpr uint8_t capteurType = CAPTEUR_TYPE::ULTRASON;
 constexpr uint8_t scenario = ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN;
 
 /************************* CAN WE GO OFFLINE? *******************************/
-constexpr bool is_offline = false;
-constexpr bool use_battery = true;
+// constexpr bool is_offline = false;
+// constexpr bool use_battery = true;
 
 /************************** USE INTERNAL DAC? ********************************/
 constexpr bool internal_dac = false;
@@ -62,87 +60,6 @@ constexpr uint16_t delay_before_trigger_waiting_seconds = 0;
 constexpr uint32_t time_within_minimum_sec = 5;
 constexpr uint32_t time_within_minimum_sec_2 = 10;
 constexpr uint32_t min_distance_cm = 10;
-
-/**
- * @version 1.3.4
- * @date 01-09-2022
- *  @feature Ajout de delayFetch : le delai entre deux fetch peut être réglé en
- * minutes avec NB_SON
- *
- * @version 1.4.0
- * @date 02-09-2022
- *  @feature Ajout de delayBefore : le délai entre le moment où le mouvement est
- * détecté et le déclenchement du son peut se régler depuis le site web
- *  @feature Ajout du checking que le son est bien enregistré : si ça n'est pas
- *    le cas, le son est supprimé et sera réinstallé au prochain fetch
- *  @feature Augmentation de la mémoire : la mémoire SPIFFS est augmentée
- * à 2.5Mo aucun son ne peut être installé passé cette limite
- *  @feature Meilleure gestion aléatoire : le tirage des sons est maintenant un
- *    tirage sans remise
- *  @feature Ajout d'un checking de l'intégrité de tous les sons au démarrage
- *
- *  @version 1.4.1
- *  @date 02-09-2022
- *   @feature Suppression de certaines fonctionnalités pour gagner de la mémoire
- *
- *  @version 1.4.1.1
- *  @date 02-09-2022
- *   @feature Mise à jour de max_sound
- *
- * @version 1.4.1.2
- *  @date 02-09-2022
- *   @correctif Correction bug random
- *
- * @version 1.4.2
- *  @date 05-09-2022
- *   @correctif Correction bug fuite mémoire
- *   @correctif Optimisation mémoire
- *   @feature Ajout de la fonction deleteTooMuch
- *
- * @version 1.4.2.1
- *  @date 05-09-2022
- *   @correctif Correction prédélai
- *   @correctif Correction fetch quand un son préempte
- *
- * @version 1.4.2.2
- *  @date 06-09-2022
- *   @correctif Correction fetch écrasement de tous les sons online avant un
- * fetch
- *
- * @version 1.4.2.3
- *  @date 06-09-2022
- *   @feature Plus besoin du fingerprint
- *
- * @version 1.4.3
- *  @date 06-09-2022
- *   @feature Restart automatique à l'heure parametree
- *
- * @version 2.0
- * @name MAS-SD
- *  @date 06-09-2022
- *   @feature Ajout de la carte SD
- *
- * @version 2.1
- *  @date 03-06-2023
- *   @feature Utilisation de classes pour compatibilité capteurs
- *
- * @version 2.1.1
- *  @date 14-06-2023
- *   @feature OUTPUT_PIN_2 pullup
- *
- * @version 2.1.2
- *  @date 14-06-2023
- *   @feature scénario 3 bouton
- *
- * @version 2.1.2.1
- *  @date 14-06-2023
- *   @correction delayAfter
- *
- * @version 2.1.2.2 *
- *  @date 18-09-2023
- *   @creation version Jack
- *
- */
 
 // Variables
 int statusCode;
