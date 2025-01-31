@@ -42,8 +42,8 @@
 #define MAX_LOG_FOLDER_SIZE 10485760  // 10MB in bytes
 
 /**************** SCENARIO AND CAPTEUR CHOICE (mandatory) ********************/
-constexpr uint8_t capteurType = CAPTEUR_TYPE::PIR;
-constexpr uint8_t scenario = PIR_SCENARIO::PLAY_ONCE_WHEN_MOVE;
+constexpr uint8_t capteurType = CAPTEUR_TYPE::ULTRASON;
+constexpr uint8_t scenario = ULTRASON_SCENARIO::PLAY_WHILE_WITHIN;
 
 /************************* CAN WE GO OFFLINE? *******************************/
 // constexpr bool is_offline = false;

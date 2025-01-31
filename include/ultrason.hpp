@@ -37,7 +37,9 @@ private:
 
     uint16_t measureDistance_();
     bool stayedInside_(uint32_t& last_sucessful_try_timestamp_ms);
-    bool logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, uint32_t& last_try_timestamp_ms, uint32_t& last_sucessful_try_timestamp_ms);
+    bool logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, PLAYER_STATE& last_player_state, uint32_t& last_try_timestamp_ms, uint32_t& last_sucessful_try_timestamp_ms);
     void stateMachine_();
+    bool playingToStopped_(PLAYER_STATE& player_state, PLAYER_STATE& last_player_state);
+    bool delayReached_(uint32_t& minutes_since_act, uint8_t& seconds_since_act);
     void pickMusicSpecial_();
 };
