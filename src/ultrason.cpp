@@ -41,9 +41,15 @@ bool Ultrason::isTriggered(uint32_t& minutes_since_act,
                 // If the player is playing, we do not want to check the distance too often
                 if ((millis() - last_try_timestamp_ms_ < CHECK_INTERVAL)) {
                     return true;
+                } 
+                // If we're still within the distance, keep playing
+                else if (measureDistance_() <= min_distance_) {
+                    return true;
+                } else {
+                    player_state = PLAYER_STATE::STOPPED;
+                    last_player_state = player_state;
+                    return false;
                 }
-                // TODO: Make last_try_timestamp_ms a member variable set within measureDistance_() to avoid calling it twice
-                return (measureDistance_() <= min_distance_);
             }
             if ((millis() - last_try_timestamp_ms_ < CHECK_INTERVAL) && !playingToStopped_(player_state, last_player_state)) {
                 last_player_state = player_state;
@@ -114,7 +120,7 @@ bool Ultrason::delayReached_(uint32_t& minutes_since_act, uint8_t& seconds_since
 }
 
 bool Ultrason::playingToStopped_(PLAYER_STATE& player_state, PLAYER_STATE& last_player_state) {
-    return player_state == PLAYER_STATE::STOPPED && last_player_state == PLAYER_STATE::PLAYING;
+    return ((player_state == PLAYER_STATE::STOPPED) && (last_player_state == PLAYER_STATE::PLAYING));
 }
 
 bool Ultrason::logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, PLAYER_STATE& last_player_state, uint32_t& last_sucessful_try_timestamp_ms_3) {
