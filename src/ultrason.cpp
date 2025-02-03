@@ -23,17 +23,10 @@ bool Ultrason::isTriggered(uint32_t& minutes_since_act,
                            const uint32_t& seconds_since_boot,
                            PLAYER_STATE& player_state) {
     static PLAYER_STATE last_player_state = PLAYER_STATE::STOPPED;
-    static uint32_t last_try_timestamp_ms = 0;
-    
-    // Always keep playing if the player is playing
-    if (player_state == PLAYER_STATE::PLAYING) {
-        last_player_state = player_state;
-        return true;
-    }
 
     // When the player changes to the stopped state, and we are in PLAY_WHILE_WITHIN, we want to give a chance to keep playing
     // If the player is stopped and the delay before a new play is not reached, do not play
-    else if (
+    if (
         ((player_state == PLAYER_STATE::STOPPED) && delayReached_(minutes_since_act, seconds_since_act)) 
         && !(playingToStopped_(player_state, last_player_state) && scenario_ == ULTRASON_SCENARIO::PLAY_WHILE_WITHIN)) {
         last_player_state = player_state;
@@ -41,13 +34,42 @@ bool Ultrason::isTriggered(uint32_t& minutes_since_act,
     }
 
     switch (scenario_) {
-        case ULTRASON_SCENARIO::PLAY_WHILE_WITHIN:
-        case ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN: {
-            if ((millis() - last_try_timestamp_ms < CHECK_INTERVAL) && !playingToStopped_(player_state, last_player_state)) {
+        case ULTRASON_SCENARIO::PLAY_WHILE_WITHIN: {
+            // Keep playing if the player is playing and still within the distance
+            if (player_state == PLAYER_STATE::PLAYING) {
+                last_player_state = player_state;
+                // If the player is playing, we do not want to check the distance too often
+                if ((millis() - last_try_timestamp_ms_ < CHECK_INTERVAL)) {
+                    return true;
+                }
+                // TODO: Make last_try_timestamp_ms a member variable set within measureDistance_() to avoid calling it twice
+                return (measureDistance_() <= min_distance_);
+            }
+            if ((millis() - last_try_timestamp_ms_ < CHECK_INTERVAL) && !playingToStopped_(player_state, last_player_state)) {
                 last_player_state = player_state;
                 return false;
             }
-            last_try_timestamp_ms = millis();
+
+            if (measureDistance_() <= min_distance_) {
+                last_player_state = player_state;
+                return true;
+            }
+            else {
+                last_player_state = player_state;
+                return false;
+            }
+            break;
+        }
+        case ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN: {
+            // Keep playing if the player is playing
+            if (player_state == PLAYER_STATE::PLAYING) {
+                last_player_state = player_state;
+                return true;
+            }
+            if ((millis() - last_try_timestamp_ms_ < CHECK_INTERVAL)) {
+                last_player_state = player_state;
+                return false;
+            }
 
             if (measureDistance_() <= min_distance_) {
                 last_player_state = player_state;
@@ -63,15 +85,13 @@ bool Ultrason::isTriggered(uint32_t& minutes_since_act,
         case ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN_MORE_THAN_X_SEC_AND_AGAIN_WHEN_STILL_WITHIN_MORE_THAN_Y_SEC: {
             if (state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC_AND_AGAIN_FOR_Y_SEC) {
                 static uint32_t last_sucessful_try_timestamp_ms_2 = 0;
-                return logicTriggerTimeThresholdInside_(player_state, last_player_state,
-                                                    last_try_timestamp_ms, last_sucessful_try_timestamp_ms_2);
+                return logicTriggerTimeThresholdInside_(player_state, last_player_state, last_sucessful_try_timestamp_ms_2);
             }
         }
 
         case ULTRASON_SCENARIO::PLAY_ONCE_WHEN_WITHIN_MORE_THAN_X_SEC: {
             static uint32_t last_sucessful_try_timestamp_ms = 0;
-            return logicTriggerTimeThresholdInside_(player_state, last_player_state,
-                                                    last_try_timestamp_ms, last_sucessful_try_timestamp_ms);
+            return logicTriggerTimeThresholdInside_(player_state, last_player_state, last_sucessful_try_timestamp_ms);
             break;
         }
 
@@ -97,17 +117,16 @@ bool Ultrason::playingToStopped_(PLAYER_STATE& player_state, PLAYER_STATE& last_
     return player_state == PLAYER_STATE::STOPPED && last_player_state == PLAYER_STATE::PLAYING;
 }
 
-bool Ultrason::logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, PLAYER_STATE& last_player_state, uint32_t& last_try_timestamp_ms, uint32_t& last_sucessful_try_timestamp_ms_3) {
+bool Ultrason::logicTriggerTimeThresholdInside_(PLAYER_STATE& player_state, PLAYER_STATE& last_player_state, uint32_t& last_sucessful_try_timestamp_ms_3) {
     static uint32_t last_sucessful_try_timestamp_ms = 0;
     
-    if (millis() - last_try_timestamp_ms < CHECK_INTERVAL) {
+    if (millis() - last_try_timestamp_ms_ < CHECK_INTERVAL) {
         last_player_state = player_state;
         return false;
     }
 
     logger->printLog(__func__, LOG_LEVEL::LOG_INFO, false, "player_state: %d", player_state);
 
-    last_try_timestamp_ms = millis();
     if (measureDistance_() <= min_distance_) {
         if (last_player_state == PLAYER_STATE::PLAYING && player_state == PLAYER_STATE::STOPPED) {
             if (state_ == ULTRASON_STATE::INSIDE_FOR_X_SEC) {
@@ -146,6 +165,7 @@ bool Ultrason::stayedInside_(uint32_t& last_sucessful_try_timestamp_ms) {
 }
 
 uint16_t Ultrason::measureDistance_() {
+    last_try_timestamp_ms_ = millis();
     // Clears the trigPin
     digitalWrite(trig_pin_, LOW);
     delayMicroseconds(2);
